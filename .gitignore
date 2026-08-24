@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# test output
+coverage/
+
+# go
+services/engine/bin/
+
+# environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# local data volumes
+.docker-data/
+
+# editors / os
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log

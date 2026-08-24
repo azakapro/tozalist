@@ -1,0 +1,35 @@
+{
+  "name": "tozalist",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Consent-first email-list hygiene SaaS.",
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,worker,dashboard,web -c blue,magenta,green,cyan \"pnpm --filter @tozalist/api dev\" \"pnpm --filter @tozalist/worker dev\" \"pnpm --filter @tozalist/dashboard dev\" \"pnpm --filter @tozalist/web dev\"",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @tozalist/db db:generate",
+    "db:migrate": "pnpm --filter @tozalist/db db:migrate",
+    "db:test:prepare": "pnpm --filter @tozalist/db db:test:prepare",
+    "db:seed": "pnpm --filter @tozalist/db db:seed"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@types/node": "^20.17.12",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0",
+    "vitest": "^2.1.8"
+  }
+}

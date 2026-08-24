@@ -1,0 +1,75 @@
+name: tozalist
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    # Pinned: the healthcheck below depends on this image actually shipping
+    # curl, which was verified against this release, not assumed.
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio_data:/data
+    # /minio/health/live is unauthenticated, so the probe needs no credentials
+    # and no mc alias. curl is present at /usr/bin/curl in the pinned image.
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:9000/minio/health/live']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # Internal-only validation engine.
+  # TRUST BOUNDARY: no "ports:" mapping on purpose - the engine must stay
+  # unreachable from the host and from the public internet. Only services on
+  # this compose network may call it. See docs/architecture.md.
+  engine:
+    build:
+      context: ./services/engine
+    restart: unless-stopped
+    expose:
+      - '8080'
+    environment:
+      SMTP_ENABLED: ${SMTP_ENABLED}
+      SMTP_HELO_DOMAIN: ${SMTP_HELO_DOMAIN}
+      SMTP_PROBE_FROM: ${SMTP_PROBE_FROM}
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
