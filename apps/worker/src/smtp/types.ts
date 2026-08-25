@@ -7,5 +7,8 @@ export type { StoredEmailCheck } from '@tozalist/shared'
 
 /** The one engine capability the worker needs; tests substitute a mock. */
 export type EngineVerifier = {
-  verify(email: string, opts: { smtp: boolean; catchAll: boolean }): Promise<EngineResponse>
+  verify(
+    email: string,
+    opts: { smtp: boolean; catchAll: boolean; requestId?: string | undefined },
+  ): Promise<EngineResponse>
 }

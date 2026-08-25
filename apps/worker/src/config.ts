@@ -13,6 +13,10 @@ export type WorkerConfig = {
   readonly smtpEnabled: boolean
   /** BullMQ concurrency for the smtp-probe worker. Defaults to 10. */
   readonly smtpWorkerConcurrency: number
+  /** Local port for the Prometheus /metrics scrape server. Defaults to 9464. */
+  readonly metricsPort: number
+  /** Bind address for the scrape server. Loopback unless explicitly changed. */
+  readonly metricsHost: string
 }
 
 type Env = Readonly<Record<string, string | undefined>>
@@ -29,7 +33,23 @@ export function readWorkerConfig(env: Env = process.env): WorkerConfig {
     redisUrl,
     smtpEnabled: parseSmtpEnabled(env.SMTP_ENABLED),
     smtpWorkerConcurrency: parseConcurrency(env.SMTP_WORKER_CONCURRENCY),
+    metricsPort: parsePort(env.METRICS_PORT),
+    metricsHost:
+      env.METRICS_HOST === undefined || env.METRICS_HOST.trim() === ''
+        ? '127.0.0.1'
+        : env.METRICS_HOST.trim(),
   }
+}
+
+export const DEFAULT_METRICS_PORT = 9464
+
+function parsePort(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === '') return DEFAULT_METRICS_PORT
+  const value = Number(raw)
+  if (!Number.isInteger(value) || value < 1 || value > 65535) {
+    throw new Error(`METRICS_PORT must be a port number, received "${raw}"`)
+  }
+  return value
 }
 
 function parseSmtpEnabled(raw: string | undefined): boolean {

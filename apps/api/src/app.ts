@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { redactedLoggerOptions } from '@tozalist/shared'
 import Fastify, { type FastifyInstance } from 'fastify'
 import type { FastifyBaseLogger } from 'fastify'
 import type { Redis } from 'ioredis'
@@ -9,6 +10,9 @@ import { publicLeadRoutes } from './routes/public-leads.js'
 import { openapiPlugin } from './openapi/plugin.js'
 import { healthOperation } from './openapi/operations.js'
 import { foundationPlugin } from './plugins/foundation.js'
+import { securityHeaders } from './plugins/security-headers.js'
+import { metricsPlugin } from './plugins/metrics.js'
+import { buildApiMetrics } from './metrics.js'
 import { authPlugin } from './plugins/auth.js'
 import { rateLimitPlugin } from './plugins/rate-limit.js'
 import { emailCheckRoutes } from './routes/email-check.js'
@@ -54,8 +58,15 @@ export type AppDeps = {
   publicLeads?: { limit?: number; windowMs?: number; keyPrefix?: string }
   /** Process-level SMTP switch (SMTP_ENABLED). Defaults to false. */
   smtpEnabled?: boolean
+  /**
+   * Monitoring credential for GET /metrics (METRICS_TOKEN). Server-side
+   * configuration only; when absent the endpoint fails closed for everyone.
+   */
+  metricsToken?: string
   /** Test-only tuning knobs; production uses the defaults. */
   lastUsedThrottleMs?: number
+  /** Test-only: observes every registered route (fuzz completeness gate). */
+  routeObserver?: (route: { method: string; url: string }) => void
   rateLimit?: { limit?: number; windowMs?: number; keyPrefix?: string; clock?: () => number }
   authKeyPrefix?: string
   balanceCache?: { ttlMs?: number; keyPrefix?: string }
@@ -91,7 +102,18 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     disableRequestLogging: true,
   })
 
+  const routeObserver = options.deps?.routeObserver
+  if (routeObserver !== undefined) {
+    app.addHook('onRoute', (route) => {
+      const methods = Array.isArray(route.method) ? route.method : [route.method]
+      for (const method of methods) routeObserver({ method, url: route.url })
+    })
+  }
+
   void app.register(foundationPlugin)
+  void app.register(securityHeaders)
+  const metrics = buildApiMetrics()
+  void app.register(metricsPlugin, { metrics, metricsToken: options.deps?.metricsToken })
   void app.register(openapiPlugin)
 
   // Routes live in a deferred plugin scope: avvio loads registrations in
@@ -153,8 +175,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
           smtpQueue,
           balanceCache,
           smtpEnabled,
+          metrics,
         })
-        await routes.register(phoneCheckRoutes, { db, balanceCache })
+        await routes.register(phoneCheckRoutes, { db, balanceCache, metrics })
         await routes.register(usageRoutes, { db })
         await routes.register(webhookRoutes, {
           db,
@@ -244,10 +267,15 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
 function buildLoggerOptions(
   logger: BuildAppOptions['logger'],
-): boolean | { level: string; stream: NodeJS.WritableStream } {
+):
+  | boolean
+  | ({ level: string; stream?: NodeJS.WritableStream } & ReturnType<typeof redactedLoggerOptions>) {
   if (logger === undefined) return false
-  if (typeof logger === 'boolean') return logger
-  return { level: 'info', stream: logger.stream }
+  if (logger === false) return false
+  // Redaction is not optional: every enabled logger gets the secret-key
+  // censor paths plus the deep email scrubber (roadmap 8.1).
+  if (logger === true) return { level: 'info', ...redactedLoggerOptions() }
+  return { level: 'info', stream: logger.stream, ...redactedLoggerOptions() }
 }
 
 export type { FastifyBaseLogger }

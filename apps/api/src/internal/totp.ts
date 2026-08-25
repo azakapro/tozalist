@@ -6,7 +6,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
  * handles our MFA secrets.
  */
 
-const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567' // secret-scan: allow (RFC 4648 alphabet, not a secret)
 export const TOTP_STEP_SECONDS = 30
 export const TOTP_DIGITS = 6
 

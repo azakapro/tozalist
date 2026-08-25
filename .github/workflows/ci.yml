@@ -1,0 +1,102 @@
+# CI gates (roadmap 8.1): lint, typecheck, build, full test suite (against
+# real Postgres/Redis/MinIO service containers; the engine is mocked in
+# tests), secret scan, and the banned-copy lint - on every push and PR.
+#
+# The accuracy-corpus gate from Step 8.2 is added to this workflow when that
+# step lands; it is intentionally absent until the corpus exists.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tozalist
+          POSTGRES_PASSWORD: tozalist
+          POSTGRES_DB: tozalist
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U tozalist"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+      minio:
+        image: bitnami/minio:2024
+        env:
+          MINIO_ROOT_USER: tozalist
+          MINIO_ROOT_PASSWORD: tozalist-minio
+        ports: ['9000:9000']
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+
+    env:
+      DATABASE_URL: postgresql://tozalist:tozalist@localhost:5432/tozalist
+      # Explicit, as required: the standalone db:test:prepare script reads it.
+      DATABASE_URL_TEST: postgresql://tozalist:tozalist@localhost:5432/tozalist_test
+      REDIS_URL: redis://localhost:6379
+      S3_ENDPOINT: http://localhost:9000
+      S3_ACCESS_KEY: tozalist
+      S3_SECRET_KEY: tozalist-minio
+      S3_BUCKET: tozalist-ci
+      S3_BUCKET_TEST: tozalist-ci-test
+      SMTP_ENABLED: 'false'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Secret scan
+        run: pnpm secret-scan
+
+      - name: Banned-copy lint
+        run: pnpm web:lint-copy
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Create test database
+        run: pnpm db:test:prepare
+
+      - name: Build
+        run: pnpm -r build
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Test
+        run: pnpm -r test
+
+      - name: Tooling tests (scripts)
+        run: pnpm test:scripts
+
+      - name: Format check (after build)
+        run: pnpm format:check
+
+      - name: Whitespace check
+        run: git diff --check

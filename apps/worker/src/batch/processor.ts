@@ -217,6 +217,7 @@ export function createBatchProcessor(deps: BatchProcessorDeps) {
             engineResponse = await deps.engine.verify(row.normalized, {
               smtp: false,
               catchAll: false,
+              requestId: job.data.requestId,
             })
           } catch {
             // One address the engine could not assess must not sink a whole
@@ -379,6 +380,8 @@ export function createBatchProcessor(deps: BatchProcessorDeps) {
         charged: stats.charged,
         cached: stats.cached,
         malformed: stats.malformed_rows,
+        // Originating API request id, propagated through the job payload.
+        ...(job.data.requestId !== undefined ? { request_id: job.data.requestId } : {}),
       })
     } catch (error) {
       resultStream.destroy()

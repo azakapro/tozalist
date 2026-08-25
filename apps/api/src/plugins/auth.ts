@@ -53,6 +53,9 @@ export const authPlugin = fp<AuthPluginOptions>(async (app: FastifyInstance, opt
 
   app.addHook('preHandler', async (request, reply) => {
     if (!request.url.startsWith('/v1/')) return
+    // CORS preflights carry no Authorization by design; the OPTIONS route
+    // returns only fixed header metadata, never data.
+    if (request.method === 'OPTIONS') return
 
     const header = request.headers.authorization
 

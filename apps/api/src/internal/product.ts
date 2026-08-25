@@ -82,7 +82,12 @@ export const internalProductRoutes = fp<InternalProductOptions>(
           body: {
             type: 'object',
             properties: {
-              email: { type: 'string', minLength: 1, maxLength: 320 },
+              email: {
+                type: 'string',
+                minLength: 1,
+                maxLength: 320,
+                pattern: '^[^\\u0000-\\u001f\\u007f]*$',
+              },
               smtp: { type: 'boolean' },
             },
             required: ['email'],
@@ -97,6 +102,7 @@ export const internalProductRoutes = fp<InternalProductOptions>(
         const outcome = await performEmailCheck(checkDeps, session.orgId, {
           email: request.body.email,
           smtp: request.body.smtp === true,
+          requestId: request.id,
         })
         if (outcome.kind === 'insufficient') return sendError(reply, 'INSUFFICIENT_CREDITS')
         if (outcome.kind !== 'ok') return sendError(reply, 'INTERNAL_ERROR')
@@ -122,7 +128,12 @@ export const internalProductRoutes = fp<InternalProductOptions>(
           body: {
             type: 'object',
             properties: {
-              phone: { type: 'string', minLength: 1, maxLength: 64 },
+              phone: {
+                type: 'string',
+                minLength: 1,
+                maxLength: 64,
+                pattern: '^[^\\u0000-\\u001f\\u007f]*$',
+              },
               country: { type: 'string', minLength: 2, maxLength: 2 },
             },
             required: ['phone'],
@@ -231,7 +242,7 @@ export const internalProductRoutes = fp<InternalProductOptions>(
         }
 
         try {
-          await batchQueue.enqueue(batchId)
+          await batchQueue.enqueue(batchId, request.id)
         } catch {
           const { failBatch } = await import('@tozalist/db')
           await failBatch(opts.db, {

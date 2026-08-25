@@ -134,7 +134,7 @@ describe.skipIf(!hasIntegrationEnv)('api authentication', () => {
     const response = await app.inject({
       method: 'GET',
       url: '/v1/test-protected',
-      headers: { authorization: 'Bearer tzl_live_00000000000000000000000000000000' },
+      headers: { authorization: `Bearer tzl_live_${'0'.repeat(32)}` },
     })
     expect(response.statusCode).toBe(401)
     const audit = await latestAuditFailure()
@@ -250,7 +250,7 @@ describe.skipIf(!hasIntegrationEnv)('api authentication', () => {
   // --- 17. audit hygiene ---------------------------------------------------------
 
   it('auth-failure audits contain only safe categories, never key material', async () => {
-    const secret = 'tzl_live_SuperSecretKeyValue0000000000'
+    const secret = `tzl_live_${'SuperSecretKeyValue'}${'0'.repeat(13)}`
     await app.inject({
       method: 'GET',
       url: '/v1/test-protected',

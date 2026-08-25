@@ -25,6 +25,8 @@ export type ApiConfig = {
   } | null
   /** Public marketing-site origin for CORS and the pilot-request endpoint. */
   readonly webOrigin: string
+  /** Monitoring credential for /metrics; absent disables all scraping. */
+  readonly metricsToken: string | null
 }
 
 type Env = Readonly<Record<string, string | undefined>>
@@ -45,6 +47,11 @@ export function readApiConfig(env: Env = process.env): ApiConfig {
       env.WEB_ORIGIN === undefined || env.WEB_ORIGIN.trim() === ''
         ? 'http://localhost:3000'
         : env.WEB_ORIGIN.trim(),
+    // Never echo or log this value anywhere.
+    metricsToken:
+      env.METRICS_TOKEN === undefined || env.METRICS_TOKEN.trim() === ''
+        ? null
+        : env.METRICS_TOKEN.trim(),
   }
 }
 

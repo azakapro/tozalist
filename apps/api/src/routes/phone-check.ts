@@ -2,6 +2,7 @@ import fp from 'fastify-plugin'
 import type { FastifyInstance } from 'fastify'
 import { deletePhoneCheckForOrg, recordAuditEvent, type DatabaseClient } from '@tozalist/db'
 import type { BalanceCache } from '../balance-cache.js'
+import type { ApiMetrics } from '../metrics.js'
 import { performPhoneCheck } from '../check-service.js'
 import { sendError } from '../errors.js'
 import { createPhoneCheckOperation, deletePhoneCheckOperation } from '../openapi/operations.js'
@@ -10,6 +11,7 @@ import { renderMeta, renderPhoneCheckData } from '../render.js'
 export type PhoneCheckRouteOptions = {
   db: DatabaseClient
   balanceCache: BalanceCache
+  metrics?: ApiMetrics
 }
 
 type PhoneBody = { phone: string; country?: string }

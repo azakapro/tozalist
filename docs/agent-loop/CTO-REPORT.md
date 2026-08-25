@@ -1,34 +1,51 @@
-# CTO Report — Step 7.2 correction (authoritative grant validation)
+# CTO Report — Step 8.1 correction (labelled free-text secret leakage)
 
 ## Step and outcome
 
-Step `7.2`, correction cycle per `PM-DECISION.md`. `grantCreditsWithAudit` — the authoritative manual-grant boundary — now enforces the accounting invariant itself: it validates and canonicalizes its input before deriving the reference and before any transaction opens, so an invalid call writes nothing anywhere regardless of who the caller is. Still on `feat/phase-7-lifecycle-billing`, local-only, uncommitted. Nothing else from the reviewed Step 7.2 changed; no Phase 8 work, no GitHub writes, no new dependencies.
+Step `8.1`, focused correction per `PM-DECISION.md`. The remaining reproduced leaks are closed: a labelled secret such as `password=…` inside an `Error`, or `webhook_secret=…` in an ordinary log message string, is now censored. Scope was limited to logging/redaction code and its tests. Still on `feat/phase-8-hardening`, local-only, uncommitted. No Git write.
 
-## Correction implemented
+## Correction implemented (`packages/shared/src/logging.ts`)
 
-1. **Validation inside the helper, before anything else** (`packages/db/src/billing.ts`): `grantCreditsWithAudit` now rejects, up front, any credits value that is not a positive safe integer (`Number.isSafeInteger(credits) && credits > 0` — this refuses negatives, zero, fractions, `NaN`, infinities, and beyond-`MAX_SAFE_INTEGER` values) and any note that is blank after trimming. The check runs **before** the reference hash is computed and **before** the grant transaction opens — an invalid call cannot touch the ledger, the audit trail, or even the reference space.
-2. **Canonical note used consistently**: the trimmed note is the single canonical form used for **both** the reference hash and the stored ledger note. Whitespace-only variants of the same invoice now hash to the same reference, so `"  Invoice INV-9 paid  "` replayed as `"Invoice INV-9 paid"` collides with the replay guard instead of becoming a second grant. `grantReference`'s contract comment states the canonical-note requirement.
-3. **Fixed, caller-safe failure**: invalid input returns the new `{ ok: false, reason: 'invalid_input' }` — a fixed token that never echoes the note, the amount, or any connection/configuration data. The CLI keeps its friendly per-field messages for interactive use and now also maps the helper's `invalid_input` defensively ("the grant input was rejected — nothing was granted"), so even a disagreement between the two validation layers stays safe and quiet.
-4. **Nothing else altered**: plan pricing, invoice-request retention, bank-detail handling, statement storage, signed-link scoping, and the payment-provider boundary are untouched (their tests all still pass unchanged).
+### 1. Labelled free-text secrets censored
 
-## Regression tests added (database layer, direct against the helper)
+The text-safe path (`redactSecretsInText`, used for both Pino message strings and Error message/stack text) now censors labelled secrets in addition to email hashing and shaped-secret patterns. A separator- and case-insensitive label alternation covers `password`/`passwd`/`pwd`, `api key`/`api_key`, `access key`, `secret`/`secret key`/`client secret`, `webhook secret`/`webhook_secret`, `token`, `authorization`/`auth`, `cookie`, `mfa`/`mfa code`, `recovery code`/`recovery_code`, `credential`, and `private key`. Two passes run after the existing email and shaped-secret passes:
 
-- **Invalid inputs write nothing**: `-100`, `0`, `2.5`, `NaN`, `+Infinity`, `MAX_SAFE_INTEGER + 2`, empty note, and whitespace-only note each return exactly `{ ok: false, reason: 'invalid_input' }`, and the org's ledger **and** audit tables are then asserted completely empty — zero rows leaked from eight invalid attempts.
-- **Canonical whitespace replay-protection**: a padded note grants once; the trimmed variant of the same invoice is refused as `duplicate_reference`; exactly one ledger row exists, its stored note is the canonical trimmed text, and its reference equals `grantReference(credits, trimmedNote)`.
-- **Retained behavior re-verified**: the existing tests for successful grants (one ledger row + one audit event atomically), identical-command replay refusal, unknown-org and deleted-org refusal, and all CLI validation/replay/output-hygiene behavior pass unchanged.
+- **delimited** (`label = value` / `label: value`): the value (any non-space run) is replaced with the fixed censor;
+- **whitespace** (`label value`): a value of 6+ characters is censored, which catches `password hunter2secret` while sparing short prose like `token was refreshed`.
+
+Only the value is replaced — the label and delimiter are kept for readability, and **no captured value is ever echoed**. Ordering matters and is documented: emails hash first, then shaped secrets (so `authorization: Bearer <token>` loses the whole token via the `Bearer` pattern, not just up to the first space), then the labelled passes.
+
+### 2. Native Error diagnostics stay closed
+
+`redactError` continues to run message and stack through this same, now-stronger `redactSecretsInText`, so a labelled or shaped secret in untrusted Error text is censored while the Error class name (`type`), redacted `cause`, and redacted enumerable properties are preserved. This keeps the previously approved behavior (email in an Error message still degrades to `domain#hash`, proven by the retained existing test) while adding labelled-secret coverage — the alternative the decision permits, now backed by tests for the required patterns and the same no-leak invariant. The depth-cap censoring, cycle-safe identity tracking, `serializers.err`, and Error-aware `logMethod` from the prior correction are unchanged.
+
+## Proof — actual Pino output (`packages/shared/src/logging.test.ts`)
+
+Two new real-Pino capture tests were added and all prior ones retained:
+
+- **direct `logger.error(new Error(...))`** whose message carries generic `password=…` and `token=…` values — neither value appears in serialized output; `[REDACTED]` and the `Error` class do;
+- **ordinary `logger.info`/`logger.warn` message strings** carrying labelled `cookie` (`session=…`), `authorization=Basic …`, `api_key=…`, `mfa_code=…`, `recovery_code=…`, and `webhook_secret=…` values — none of the six synthetic secrets survives;
+- unchanged and still green: the deep 10-level object/array secret, the `tzl_live_` direct-Error fixture, the Error `cause`/enumerable-property case, email hashing, the `api_key_id` correlation-field-survives case, and the cyclic-object case.
+
+The API's full check-flow hardening test (real `buildApp` logger) also continues to pass.
 
 ## Files changed (correction only)
 
-`packages/db/src/billing.ts` (validation, canonicalization, `invalid_input` variant) · `packages/db/src/billing.integration.test.ts` (+2 tests) · `apps/api/src/cli/billing-grant.ts` (defensive `invalid_input` mapping).
+`packages/shared/src/logging.ts` (labelled-secret passes in `redactSecretsInText`) · `packages/shared/src/logging.test.ts` (+2 real-Pino labelled tests). No production code outside the redaction module changed; no new dependencies.
 
 ## Verification results
 
-`pnpm db:test:prepare` ✓ · affected suite: db ✓ **71** (+2) · `pnpm -r build` ✓ · `pnpm -r test` ✓ **569** (core 177, shared 48, db **71**, api 160, worker 55, dashboard 32, web 26) · `pnpm lint` ✓ · `pnpm -r typecheck` ✓ · `pnpm format:check` ✓ after the build · `git diff --check` ✓ clean. **Lighthouse remains `NOT_RUN`** (Phase 9 gate). No production, provider, legal, or destructive action; tests stayed within the isolated test database.
+`pnpm db:test:prepare` ✓ · shared redaction tests ✓ (**69**, +2) · API hardening + auth tests ✓ · `pnpm secret-scan` ✓ clean (363 files) · copy lint ✓ · `pnpm -r build` ✓ · `pnpm -r test` ✓ **584** (core 177, shared 69, db 71, api 169, worker 59, dashboard 32, web 26) · `pnpm test:scripts` ✓ **5** · `pnpm lint` ✓ · `pnpm -r typecheck` ✓ · `pnpm format:check` ✓ after build · `git diff --check` ✓. Benchmarks were **not** rerun — benchmark code was out of scope and the previously recorded `bench/RESULTS.md` figures remain valid. **`NOT_RUN`** (carried, unchanged): the GitHub Actions workflow itself and Lighthouse.
 
-## Notes for PM review
+## Note for PM review
 
-- The PM's retention note is acknowledged and carried: before the DRAFT privacy policy is finalized, its data map must add the `invoice_requests` record (org, requesting user, plan, timestamp; removed at org purge). No legal copy was touched in this correction, per the explicit prohibition — this stays on the pre-finalization checklist.
+- The whitespace-delimited labelled pass censors 6+ character values after a secret label; this can, in rare cases, censor a non-secret word that follows such a label in prose (e.g. `authorization required` → the word after the label). That is a safe over-redaction (no leak, occasional noise), deliberately biased toward closing leaks — flagged as a judgment call.
+
+## Carry-forward pre-production gates (unchanged, still blocking)
+
+- The Next.js/React framework upgrade in `docs/PRE-PRODUCTION-GATES.md` remains blocking before Phase 9 deployment or public beta; no framework upgrade was performed here.
+- CI stays `NOT_RUN` until a later explicitly authorized branch push; Lighthouse remains a Phase 9 deployment gate.
 
 ## Git status
 
-`feat/phase-7-lifecycle-billing`, all Step 7.2 work (implementation + this correction) local and uncommitted on top of `17f9055`. No PR exists. Per PROTOCOL, the single Phase 7 draft PR follows only after corrected-7.2 approval and an explicit sync authorization naming files, message, branch, and PR title.
+`feat/phase-8-hardening`, all Step 8.1 work (implementation + all three corrections) local and uncommitted on top of `edf29a8`. No PR exists. Awaiting PM review; Git sync only on an explicit authorization.

@@ -1,5 +1,6 @@
 import { DelayedError, UnrecoverableError, type Job } from 'bullmq'
 import type pino from 'pino'
+import type { WorkerMetrics } from '../metrics.js'
 import { aggregate, detectTypo, type EngineResponse } from '@tozalist/core'
 import {
   getEmailCheckForProcessing,
@@ -31,6 +32,7 @@ export type ProcessorDeps = {
    */
   getEngine: () => EngineVerifier
   clock?: () => number
+  metrics?: WorkerMetrics
 }
 
 type JobOutcome =
@@ -55,11 +57,14 @@ export function createSmtpProbeProcessor(deps: ProcessorDeps) {
     let logDomain = ''
 
     const finish = (outcome: JobOutcome): void => {
+      deps.metrics?.smtpOutcomes.inc({ outcome })
       deps.logger.info({
         domain: logDomain,
         outcome,
         duration_ms: clock() - started,
         retry_count: job.attemptsMade,
+        // Originating API request id, propagated through the job payload.
+        ...(job.data.requestId !== undefined ? { request_id: job.data.requestId } : {}),
       })
     }
 
@@ -145,7 +150,11 @@ export function createSmtpProbeProcessor(deps: ProcessorDeps) {
       // 5. The probe itself.
       let fresh: EngineResponse
       try {
-        fresh = await deps.getEngine().verify(email, { smtp: true, catchAll: true })
+        fresh = await deps.getEngine().verify(email, {
+          smtp: true,
+          catchAll: true,
+          requestId: job.data.requestId,
+        })
       } catch (error) {
         if (error instanceof EngineHttpError && error.status < 500) {
           // Our request was malformed - a bug, not domain health. Resolve the
