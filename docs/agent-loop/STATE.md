@@ -2,11 +2,10 @@
 
 - Status: `ready_for_cto`
 - Current step: `8.1`
-- Current step title: Observability and security pass — approved Git sync handoff
+- Current step title: Observability and security pass (CI MinIO-service sync handoff)
 - Owner: Claude Code
-- Completed through: Phase 7 merged (`edf29a8`); Step `8.1` is locally PM-approved on `feat/phase-8-hardening` after its security corrections. The only remaining action in this state is the authorised commit-and-push handoff; no Phase 8 pull request exists yet.
-- Last verified test total: PM independently verified 584 workspace tests (core 177, shared 69, db 71, api 169, worker 59, dashboard 32, web 26) + 5 root scripts tests; secret scan, copy lint, build, lint, typecheck, format-after-build, and diff check pass. Standalone db:test:prepare is NOT_RUN in the PM shell only because DATABASE_URL_TEST is not exported there; the isolated DB suite passed. CI and Lighthouse remain `NOT_RUN`.
-- Last verification: PM review, 2026-08-25
-- Next action: Claude Code performs only the exact 61-path Step 8.1 Git sync authorised in `PM-DECISION.md`: commit `hardening: add observability and security controls`, push only `feat/phase-8-hardening`, report the commit and remote branch, set this file to `awaiting_pm_review` for PM remote-CI verification, and stop. No product work, PR, merge, deployment, provider, legal/privacy, or production action.
+- Completed through: Step `8.1` remains synchronized as commit `6b4d2c3` on `origin/feat/phase-8-hardening`; `origin/main` remains `edf29a8`; no Phase 8 PR exists. The approved CI-only correction is local and uncommitted: `.github/workflows/ci.yml` uses `minio/minio:RELEASE.2025-09-07T16-13-09Z` with `command: server /data` in place of unavailable `bitnami/minio:2024`.
+- Last verified: PM, 2026-08-25 — exact two-line workflow diff inspected; MinIO configuration matches the project-pinned Compose image; YAML and `git diff --check` pass; local service health endpoint returned HTTP 200 and the exact curl health command passed in-container. GitHub Actions remains `NOT_RUN` for this correction until the authorized push.
+- Next action: Claude Code performs only the PM-authorized four-file commit (`ci: fix MinIO service image`) and pushes `feat/phase-8-hardening` to `origin`, with no PR. Then it reports the resulting commit and stops for PM remote-CI verification. Step 8.2 is locked pending a green GitHub Actions run.
 
-Do not begin Step 8.2 or any later roadmap step until the PM records an approval after the corrected Step 8.1 review.
+Do not begin Step 8.2 or any later roadmap step until the PM records remote-CI approval.
