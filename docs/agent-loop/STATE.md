@@ -2,10 +2,10 @@
 
 - Status: `ready_for_cto`
 - Current step: `8.1`
-- Current step title: Observability and security pass (CI Node runtime-contract sync handoff)
+- Current step title: Observability and security pass (CI Markdown-format sync handoff)
 - Owner: Claude Code
-- Completed through: the CI MinIO-service correction is synchronized as commit `18ab3c3` on `origin/feat/phase-8-hardening`; `origin/main` remains `edf29a8`; no Phase 8 PR exists. The approved runtime correction remains local and uncommitted: `.nvmrc` selects `22.22.0`, root `engines.node` is `>=22.19.0`, and existing Node-version documentation matches the locked `undici@8.10.0` engine floor.
-- Last verified: PM, 2026-08-25 — exact runtime-contract diff inspected; CI continues to read `.nvmrc`; a clean frozen install succeeded on Node 22.22.0 with no lockfile drift; `git diff --check` passes. GitHub Actions remains `NOT_RUN` for this correction until the authorized push.
-- Next action: Claude Code performs only the PM-authorized seven-file commit (`ci: align Node runtime contract`) and pushes `feat/phase-8-hardening` to `origin`, with no PR. Then it reports the resulting commit and stops for PM remote-CI verification. Step 8.2 is locked pending a green GitHub Actions run.
+- Completed through: the CI runtime correction is synchronized as commit `4d40f2f` on `origin/feat/phase-8-hardening`; `origin/main` remains `edf29a8`; no Phase 8 PR exists. The approved local correction only Prettier-formats `README.md` and `docs/architecture.md` after remote run `32860336421` passed every functional gate and failed only on those documents.
+- Last verified: PM, 2026-08-25 — the exact two-document diff contains table padding and delimiter alignment only; `pnpm format:check` and `git diff --check` pass. GitHub Actions remains `NOT_RUN` for this correction until the authorized push.
+- Next action: Claude Code performs only the PM-authorized five-file commit (`docs: format runtime tables`) and pushes `feat/phase-8-hardening` to `origin`, with no PR. Then it reports the resulting commit and stops for PM remote-CI verification. Step 8.2 is locked pending a green GitHub Actions run.
 
-Do not begin Step 8.2 or any later roadmap step until the PM records remote-CI approval.
+Do not begin Step 8.2 or any later roadmap step until the PM records approval after remote CI verification.
