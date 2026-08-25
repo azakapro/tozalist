@@ -5,7 +5,7 @@
   "description": "Consent-first email-list hygiene SaaS.",
   "packageManager": "pnpm@9.15.4",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.19.0"
   },
   "scripts": {
     "dev": "concurrently -n api,worker,dashboard,web -c blue,magenta,green,cyan \"pnpm --filter @tozalist/api dev\" \"pnpm --filter @tozalist/worker dev\" \"pnpm --filter @tozalist/dashboard dev\" \"pnpm --filter @tozalist/web dev\"",
