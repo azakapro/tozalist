@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { api, ApiError } from '../../lib/api'
 import { t } from '../../lib/messages'
 import { Shell } from '../../lib/shell'
-import { NoCredits } from '../../lib/states'
+import { ApiUnreachable, NoCredits } from '../../lib/states'
 import { VerdictCard, type Verdict } from '../../lib/verdict'
 
 type EmailResult = {
@@ -32,28 +32,44 @@ export default function CheckPage() {
   const [emailResult, setEmailResult] = useState<EmailResult | null>(null)
   const [phoneResult, setPhoneResult] = useState<PhoneResult | null>(null)
   const [noCredits, setNoCredits] = useState(false)
-  const [error, setError] = useState('')
+  const [unreachable, setUnreachable] = useState(false)
   const [busy, setBusy] = useState(false)
+  // The last submitted check, so Retry repeats exactly what the user asked
+  // for - even if the input field changed since.
+  const [lastRequest, setLastRequest] = useState<{ kind: 'email' | 'phone'; value: string } | null>(
+    null,
+  )
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault()
+  async function runCheck(kind: 'email' | 'phone', value: string) {
     setBusy(true)
-    setError('')
+    setUnreachable(false)
     setNoCredits(false)
     setEmailResult(null)
     setPhoneResult(null)
+    setLastRequest({ kind, value })
     try {
-      if (tab === 'email') {
-        setEmailResult(await api.post<EmailResult>('/internal/check/email', { email: input }))
+      if (kind === 'email') {
+        setEmailResult(await api.post<EmailResult>('/internal/check/email', { email: value }))
       } else {
-        setPhoneResult(await api.post<PhoneResult>('/internal/check/phone', { phone: input }))
+        setPhoneResult(await api.post<PhoneResult>('/internal/check/phone', { phone: value }))
       }
     } catch (caught: unknown) {
       if (caught instanceof ApiError && caught.status === 402) setNoCredits(true)
-      else setError(t('common.error'))
+      // Anything else is an unreachable/unexpected failure: the shared retry
+      // state, never raw error text.
+      else setUnreachable(true)
     } finally {
       setBusy(false)
     }
+  }
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault()
+    await runCheck(tab, input)
+  }
+
+  function retry() {
+    if (lastRequest !== null) void runCheck(lastRequest.kind, lastRequest.value)
   }
 
   return (
@@ -96,7 +112,11 @@ export default function CheckPage() {
       </form>
 
       {noCredits && <NoCredits />}
-      {error !== '' && <p className="text-sm text-red-600">{error}</p>}
+      {unreachable && (
+        <div className="max-w-xl">
+          <ApiUnreachable onRetry={retry} />
+        </div>
+      )}
 
       {emailResult !== null && (
         <div className="max-w-xl">
