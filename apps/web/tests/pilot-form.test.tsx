@@ -17,6 +17,36 @@ function fill(name: string, value: string) {
 }
 
 describe('PilotForm', () => {
+  it('contact page usage: posts source landing_contact', async () => {
+    fetchMock.mockResolvedValue({ ok: true })
+    const { container } = render(<PilotForm locale="en" source="landing_contact" />)
+
+    fill('email', 'person@example.com')
+    await act(async () => {
+      fireEvent.submit(container.querySelector('form') as HTMLFormElement)
+      await Promise.resolve()
+    })
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>
+    expect(body.source).toBe('landing_contact')
+  })
+
+  it('landing page usage: defaults to source landing_pilot', async () => {
+    fetchMock.mockResolvedValue({ ok: true })
+    const { container } = render(<PilotForm locale="uz" />)
+
+    fill('email', 'owner@firma.uz')
+    await act(async () => {
+      fireEvent.submit(container.querySelector('form') as HTMLFormElement)
+      await Promise.resolve()
+    })
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>
+    expect(body.source).toBe('landing_pilot')
+  })
+
   it('happy path: posts the lead with locale and shows the success state', async () => {
     fetchMock.mockResolvedValue({ ok: true })
     const { container } = render(<PilotForm locale="uz" />)

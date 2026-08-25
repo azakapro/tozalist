@@ -1,0 +1,40 @@
+# Privacy Policy
+
+TozaList checks email lists that our customers already own. This policy explains
+what we store, why, for how long, and how to remove it.
+
+## The short version
+
+Your lists are yours. We process them only to produce your results, keep them
+only for the retention period you choose, and never sell, share, or reuse them.
+
+## Data map
+
+| What we store                               | Where                        | How long                                | Why                            | How to delete                                |
+| ------------------------------------------- | ---------------------------- | --------------------------------------- | ------------------------------ | -------------------------------------------- |
+| Account email and Argon2id password hash    | PostgreSQL (users)           | Until account deletion                  | Sign-in                        | Delete the organization in Settings          |
+| TOTP secret and hashed recovery codes       | PostgreSQL (users)           | Until account deletion                  | Two-factor auth                | Delete the organization                      |
+| API key hashes and display prefixes         | PostgreSQL (api_keys)        | Until revoked + retention               | API authentication             | Revoke in the dashboard                      |
+| Checked email addresses and verdicts        | PostgreSQL (email_checks)    | Your chosen retention: 7, 30 or 90 days | Your check results and caching | Automatic expiry, or delete the organization |
+| Checked phone numbers (format results only) | PostgreSQL (phone_checks)    | Your chosen retention                   | Your check results             | Automatic expiry, or delete the organization |
+| Uploaded and result CSV files               | S3-compatible object storage | Your chosen retention                   | Batch processing and downloads | Delete the batch, or automatic expiry        |
+| Credit ledger entries                       | PostgreSQL (credit_ledger)   | Kept (financial record, no addresses)   | Accounting integrity           | Not deleted; contains no personal data       |
+| Audit events (actions, not content)         | PostgreSQL (audit_events)    | 90 days                                 | Security accountability        | Automatic expiry                             |
+| Pilot and contact requests                  | PostgreSQL (leads)           | Marked to expire after 180 days\*       | Replying to you                | Email us to delete sooner                    |
+
+\* Each request is stored with a 180-day expiry date. The scheduled job
+that deletes expired requests automatically is planned but not live yet;
+until it is, we delete expired and requested records manually.
+
+## What we never do
+
+We do not sell contact data, look up who owns a number or its carrier, scrape,
+or use
+your lists for anything except your own checks. Verdicts are risk signals with
+reasons — never statements about a person.
+
+## Your choices
+
+Retention is selectable per organization (7, 30 or 90 days). Deleting your
+organization disables access immediately and schedules permanent removal of
+your stored data. Write to salom@tozalist.uz for any privacy request.

@@ -119,6 +119,9 @@ const en = {
   'faq.8.a':
     'Tell us. Every verdict carries its reasons, so we can trace exactly why an address was classified — and if we got it wrong, we fix it and credit the checks back.',
 
+  'contact.title': 'Contact us',
+  'contact.intro':
+    'Questions about pilots, pricing, or the API? Send us a note — we reply within two business days.',
   'footer.privacy': 'Privacy',
   'footer.terms': 'Terms',
   'footer.docs': 'API docs',
@@ -241,6 +244,9 @@ const uz: Record<MessageKey, string> = {
   'faq.8.a':
     "Bizga ayting. Har bir hukm o'z sabablari bilan keladi, shuning uchun manzil nega bunday baholanganini aniq ko'rsatib bera olamiz — xato bizdan bo'lsa, tuzatamiz va tekshiruvlarni hisobingizga qaytaramiz.",
 
+  'contact.title': 'Biz bilan aloqa',
+  'contact.intro':
+    'Pilot, narxlar yoki API haqida savolingiz bormi? Bizga yozing — ikki ish kuni ichida javob beramiz.',
   'footer.privacy': 'Maxfiylik',
   'footer.terms': 'Shartlar',
   'footer.docs': 'API hujjatlari',
@@ -359,6 +365,9 @@ const ru: Record<MessageKey, string> = {
   'faq.8.a':
     'Скажите нам. Каждый вердикт приходит со своими причинами, поэтому мы можем точно объяснить, почему адрес получил такую оценку, — а если ошиблись мы, исправим и вернём проверки на счёт.',
 
+  'contact.title': 'Свяжитесь с нами',
+  'contact.intro':
+    'Вопросы о пилоте, ценах или API? Напишите нам — ответим в течение двух рабочих дней.',
   'footer.privacy': 'Конфиденциальность',
   'footer.terms': 'Условия',
   'footer.docs': 'Документация API',

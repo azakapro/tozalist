@@ -91,6 +91,22 @@ describe.skipIf(!hasIntegrationEnv)('public pilot leads', () => {
     expect(row?.expiresAt.getTime()).toBeGreaterThan(Date.now())
   })
 
+  it('the contact form source is stored as landing_contact', async () => {
+    const email = `${uniqueName('contact')}@firma.uz`
+    const response = await submit(
+      { email, message: 'Please call me back', source: 'landing_contact', locale: 'ru' },
+      '203.0.113.60',
+    )
+    expect(response.statusCode).toBe(200)
+    const [row] = await db.select().from(leads).where(eq(leads.email, email))
+    expect(row?.source).toBe('landing_contact')
+    expect(row?.locale).toBe('ru')
+    // Only the two landing sources are accepted.
+    expect(
+      (await submit({ email: 'x@y.uz', source: 'landing_checklist' }, '203.0.113.60')).statusCode,
+    ).toBe(400)
+  })
+
   it('the honeypot pretends success and stores nothing', async () => {
     const email = `${uniqueName('bot')}@spam.test`
     const response = await submit({ email, website: 'http://bot.example' }, '203.0.113.51')

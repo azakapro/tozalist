@@ -1,19 +1,27 @@
 #!/usr/bin/env node
 /**
- * Banned-copy gate (§0.2). Scans the public site's message file for claim
- * language that must never appear in any locale, and exits non-zero on a
- * match. Wired as the web app's prebuild step, so both local builds and CI
- * fail on violations.
+ * Banned-copy gate (§0.2). Scans the public site's message file and all MDX
+ * content pages for claim language that must never appear in any locale, and
+ * exits non-zero on a match. Wired as the web app's prebuild step, so both
+ * local builds and CI fail on violations.
  *
  * Banned: adjective-claims only. "guarantee" as a verb in "we do not
  * guarantee" is honest and allowed; "guaranteed delivery" is not.
  */
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const target = join(here, '..', 'lib', 'messages.ts')
+const contentDir = join(here, '..', 'content')
+
+export function scanTargets() {
+  const mdx = readdirSync(contentDir)
+    .filter((name) => name.endsWith('.mdx'))
+    .sort()
+    .map((name) => join(contentDir, name))
+  return [join(here, '..', 'lib', 'messages.ts'), ...mdx]
+}
 
 export const BANNED_TERMS = [
   'guaranteed',
@@ -44,12 +52,15 @@ export function findViolations(text) {
 
 const isMain = process.argv[1] === fileURLToPath(import.meta.url)
 if (isMain) {
-  const text = readFileSync(target, 'utf8')
-  const violations = findViolations(text)
-  if (violations.length > 0) {
-    console.error('BANNED COPY found in lib/messages.ts:')
-    for (const term of violations) console.error(`  - "${term}"`)
-    process.exit(1)
+  let failed = false
+  for (const target of scanTargets()) {
+    const violations = findViolations(readFileSync(target, 'utf8'))
+    if (violations.length > 0) {
+      failed = true
+      console.error(`BANNED COPY found in ${target}:`)
+      for (const term of violations) console.error(`  - "${term}"`)
+    }
   }
+  if (failed) process.exit(1)
   console.log('copy lint: clean')
 }

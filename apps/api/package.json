@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "create-key": "tsx src/cli/create-key.ts",
-    "revoke-key": "tsx src/cli/revoke-key.ts"
+    "revoke-key": "tsx src/cli/revoke-key.ts",
+    "export-openapi": "tsx scripts/export-openapi.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^9",

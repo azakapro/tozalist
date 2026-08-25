@@ -8,16 +8,21 @@
     "build": "next build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint-copy": "node scripts/lint-copy.mjs",
-    "prebuild": "node scripts/lint-copy.mjs",
+    "prebuild": "node scripts/lint-copy.mjs && pnpm --filter @tozalist/api export-openapi --out ../web/generated/openapi.json",
     "test": "vitest run"
   },
   "dependencies": {
+    "@mdx-js/loader": "^3.1.1",
+    "@mdx-js/react": "^3.1.1",
+    "@next/mdx": "^14",
+    "@tozalist/core": "workspace:^",
     "next": "14.2.20",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.2",
+    "@types/mdx": "^2.0.14",
     "@types/node": "^20.17.12",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",

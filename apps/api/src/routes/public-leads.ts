@@ -46,6 +46,7 @@ type LeadBody = {
   volume?: string
   message?: string
   locale?: string
+  source?: 'landing_pilot' | 'landing_contact'
   /** Honeypot: humans never see it; anything here means a bot. */
   website?: string
 }
@@ -69,6 +70,7 @@ export const publicLeadRoutes = fp<PublicLeadsOptions>(async (app: FastifyInstan
             volume: { type: 'string', enum: [...VOLUME_RANGES] },
             message: { type: 'string', maxLength: 2000 },
             locale: { type: 'string', enum: ['uz', 'ru', 'en'] },
+            source: { type: 'string', enum: ['landing_pilot', 'landing_contact'] },
             website: { type: 'string', maxLength: 200 },
           },
           required: ['email'],
@@ -117,7 +119,7 @@ export const publicLeadRoutes = fp<PublicLeadsOptions>(async (app: FastifyInstan
         company: emptyToNull(request.body.company),
         phone: emptyToNull(request.body.phone),
         message: composeMessage(request.body.volume, request.body.message),
-        source: 'landing_pilot',
+        source: request.body.source ?? 'landing_pilot',
         locale: request.body.locale ?? 'uz',
         expiresAt: new Date(Date.now() + LEAD_RETENTION_DAYS * 24 * 60 * 60 * 1000),
       })

@@ -1,0 +1,50 @@
+# Quickstart
+
+Four steps from zero to your first cleaned batch.
+
+## 1. Get an API key
+
+Sign in to the dashboard, open **API keys**, and create a key. Copy it
+immediately — it is shown exactly once. Keys look like `tzl_live_…`.
+
+## 2. Your first check
+
+```bash
+curl -s https://api.tozalist.uz/v1/email/check \
+  -H "Authorization: Bearer $TOZALIST_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "someone@example.com"}'
+```
+
+## 3. Interpret the response
+
+```json
+{
+  "data": {
+    "verdict": "risky",
+    "reason_codes": ["POSSIBLE_TYPO"],
+    "suggestion": "gmail.com",
+    "checks": { "syntax": {}, "domain": {}, "smtp": null }
+  },
+  "meta": { "credits_used": 1, "cached": false }
+}
+```
+
+Four verdicts: `valid`, `risky`, `unknown`, `invalid`. Every verdict carries
+reason codes — see the [glossary](./glossary). Treat `unknown` as _keep_: it
+means the checks could not decide, not that the address is bad. A repeat check
+of the same address within 7 days is served from cache and costs nothing.
+
+## 4. Your first batch
+
+```bash
+curl -s https://api.tozalist.uz/v1/batches \
+  -H "Authorization: Bearer $TOZALIST_KEY" \
+  -F "file=@subscribers.csv"
+```
+
+The response contains a `batch_id`. Poll `GET /v1/batches/{id}` until
+`status` is `done`, then fetch the `download_url` for a result CSV with a
+verdict, score, reasons and suggestion appended to every row. One credit per
+row is reserved up front; unused credits (duplicates, cached rows) are
+refunded automatically when the batch completes.

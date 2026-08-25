@@ -6,8 +6,17 @@ import { t, type Locale } from './messages'
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 const VOLUME_RANGES = ['<1k', '1k-10k', '10k-50k', '50k-200k', '200k+'] as const
 
-/** The pilot-request form: posts to the public API, honeypot included. */
-export function PilotForm({ locale }: { locale: Locale }) {
+export type LeadSource = 'landing_pilot' | 'landing_contact'
+
+/** The lead form: posts to the public API, honeypot included. Reused by the
+ * landing page (pilot requests) and the contact page (general contact). */
+export function PilotForm({
+  locale,
+  source = 'landing_pilot',
+}: {
+  locale: Locale
+  source?: LeadSource
+}) {
   const [state, setState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle')
   const [emailError, setEmailError] = useState(false)
 
@@ -32,6 +41,7 @@ export function PilotForm({ locale }: { locale: Locale }) {
           volume: String(form.get('volume') ?? '') || undefined,
           message: String(form.get('message') ?? ''),
           locale,
+          source,
           // Honeypot: humans never fill this hidden field.
           website: String(form.get('website') ?? ''),
         }),

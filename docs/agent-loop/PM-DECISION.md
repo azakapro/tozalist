@@ -2,77 +2,101 @@
 
 ## Review
 
-- Step ID: `6.1` correction — Landing page.
-- Baseline checked: `YES — feat/phase-6-public-site starts at origin/main 62fd04167380a0cbc2a9d7525051af791c32fdbb.`
-- CTO report, actual diff, and relevant API/web code reviewed: `YES`.
-- Scope checked: `YES — the public lead endpoint, CORS separation, localization, static public site, and copy gate are all necessary Step 6.1 work. No later roadmap work is included.`
-- Privacy, security, accounting, and retention checked: `YES — public leads have a 180-day expiry, are not logged, honeypot submissions are not stored, Redis failure closes the public write path, and no payment or credit path changed. The public web origin has no CORS access to dashboard routes; only the dashboard origin receives credentialed internal-route CORS.`
-- Verification independently rerun: `YES — database preparation; copy lint; web 14; API 145; worker 50; core 173; shared 43; db 52; dashboard 23 (500 total); workspace build; lint; typecheck; format check; and diff check all pass.`
-- Lighthouse: `NOT_RUN — this environment has no local audit harness or browser binary. The ≥95 performance/accessibility target is not claimed. A deployed-site Lighthouse audit and production proxy/IP-rate-limit verification remain required pre-launch gates in Phase 9.`
+- Step ID: `6.2` correction — Public docs and legal pages.
+- Baseline checked: `YES — all Phase 6 work is local on feat/phase-6-public-site, on top of synchronized Step 6.1 commit 5370fea.`
+- CTO report and actual implementation reviewed: `YES — generated OpenAPI reference, glossary, MDX pages, draft-banner flag, contact lead source, copy gate, sitemap, formatter handling, and licenses.`
+- Scope checked: `YES — all changes belong to Phase 6. No Phase 7 work, payments, deployment, real-data processing, or product-accounting change is present.`
+- Privacy/security/legal-status checked: `YES — the legal pages retain the single DRAFT banner; the privacy table now truthfully distinguishes a 180-day expiry marker from the not-yet-live automatic purge. This is not legal approval. Any manual deletion commitment remains an owner operational responsibility until Phase 7 implements purge automation.`
+- Acceptance evidence checked: `YES — the glossary is generated from core with an exact drift test; every legal page uses the single DRAFT flag; prohibited use includes every required category; the contact form writes only the enum-approved landing_contact source.`
+- Verification independently rerun: `YES — database preparation, copy lint, web 24, API 146, workspace build (including a fresh OpenAPI export and 39 static pages), formatter after the build, lint, typecheck, core 173, shared 43, db 52, dashboard 23, worker 50, and diff check all pass: 511 tests total.`
+- Lighthouse: `NOT_RUN — the ≥95 performance/accessibility target remains a Phase 9 pre-launch audit gate and is not claimed.`
+- Dependency compliance checked: `YES — @next/mdx 14.2.35, @mdx-js/loader 3.1.1, @mdx-js/react 3.1.1, and @types/mdx 2.0.14 are MIT in their installed package metadata, with matching root THIRD_PARTY_LICENSES records.`
 
 ## Decision
 
 - Decision: `APPROVED`
-- Rationale: `The correction eliminates the previous credentialed-CORS trust-boundary leak structurally: the public endpoint is in a separate non-credentialed scope and the dashboard surface remains dashboard-origin-only. The public limiter is collision-safe and fail-closed, lead email handling preserves the local part, and visible sample verdict labels are fully localized. The independent verification matches the CTO report.`
+- Rationale: `Step 6.2 and its focused correction satisfy the roadmap acceptance criteria and all required release gates now pass after a clean build. Phase 6 is ready for its single GitHub review handoff. The legal pages remain plainly marked as engineering drafts, not approved legal terms.`
 
-## Authorized Git sync — Step 6.1 only
+## Authorized Git sync and Phase 6 draft PR
 
-Commit the reviewed Step 6.1 work plus relay records in one atomic commit on `feat/phase-6-public-site`, then push only that branch to `origin`. Do not create or update a pull request: the single Public site draft PR is authorized only after Step 6.2.
+On `feat/phase-6-public-site`, make one atomic commit containing only the reviewed Step 6.2 work, its correction, and relay records; then push only that branch to `origin`; then create one **draft** pull request into `main`. Do not merge it.
 
 Included paths:
 
-- `.env.example`
-- `THIRD_PARTY_LICENSES/fastify-cors-MIT.txt` (removal)
+- `.prettierignore`
+- `THIRD_PARTY_LICENSES/mdx-js-loader-MIT.txt`
+- `THIRD_PARTY_LICENSES/mdx-js-react-MIT.txt`
+- `THIRD_PARTY_LICENSES/next-mdx-MIT.txt`
+- `THIRD_PARTY_LICENSES/types-mdx-MIT.txt`
 - `apps/api/package.json`
-- `apps/api/src/app.ts`
-- `apps/api/src/config.ts`
-- `apps/api/src/cors.ts`
-- `apps/api/src/internal/routes.ts`
+- `apps/api/scripts/export-openapi.ts`
 - `apps/api/src/public-leads.integration.test.ts`
 - `apps/api/src/routes/public-leads.ts`
-- `apps/api/src/server.ts`
-- `apps/web/app/[locale]/page.tsx`
-- `apps/web/app/layout.tsx`
-- `apps/web/app/page.tsx`
-- `apps/web/app/robots.ts`
+- `apps/web/.gitignore`
+- `apps/web/app/[locale]/contact/page.tsx`
+- `apps/web/app/[locale]/docs/glossary/page.tsx`
+- `apps/web/app/[locale]/docs/limitations/page.tsx`
+- `apps/web/app/[locale]/docs/page.tsx`
+- `apps/web/app/[locale]/docs/quickstart/page.tsx`
+- `apps/web/app/[locale]/docs/reference/page.tsx`
+- `apps/web/app/[locale]/docs/webhooks/page.tsx`
+- `apps/web/app/[locale]/privacy/page.tsx`
+- `apps/web/app/[locale]/prohibited-use/page.tsx`
+- `apps/web/app/[locale]/terms/page.tsx`
 - `apps/web/app/sitemap.ts`
-- `apps/web/lib/locale-switcher.tsx`
+- `apps/web/content/limitations.mdx`
+- `apps/web/content/privacy.mdx`
+- `apps/web/content/prohibited-use.mdx`
+- `apps/web/content/quickstart.mdx`
+- `apps/web/content/terms.mdx`
+- `apps/web/content/webhooks.mdx`
+- `apps/web/lib/draft-banner.tsx`
+- `apps/web/lib/glossary.ts`
 - `apps/web/lib/messages.ts`
+- `apps/web/lib/openapi.ts`
+- `apps/web/lib/page-shell.tsx`
 - `apps/web/lib/pilot-form.tsx`
+- `apps/web/lib/site-config.ts`
+- `apps/web/mdx-components.tsx`
+- `apps/web/mdx.d.ts`
+- `apps/web/next.config.mjs`
 - `apps/web/package.json`
 - `apps/web/scripts/lint-copy.mjs`
-- `apps/web/tests/lint-copy.test.ts`
-- `apps/web/tests/locales.test.tsx`
+- `apps/web/tests/draft-banner.test.tsx`
+- `apps/web/tests/glossary.test.ts`
+- `apps/web/tests/openapi.test.ts`
 - `apps/web/tests/pilot-form.test.tsx`
-- `apps/web/vitest.config.ts`
 - `docs/agent-loop/CTO-REPORT.md`
 - `docs/agent-loop/PM-DECISION.md`
-- `docs/agent-loop/PROTOCOL.md`
 - `docs/agent-loop/STATE.md`
-- `eslint.config.mjs`
-- `package.json`
 - `pnpm-lock.yaml`
 
-Use commit message: `web: add localized pilot landing page`.
+Use commit message: `web: add public docs and draft legal pages`.
 
-After the commit and push, report the commit hash and remote branch in `CTO-REPORT.md`, set `STATE.md` to `awaiting_pm_review` with Step `6.1`, and stop. Do not edit product code, begin Step 6.2, create/update a PR, merge, deploy, or process real customer data in this sync handoff.
+Create a draft PR with:
+
+- Title: `Phase 6: public site, docs, and draft policies`
+- Base: `main`
+- Body: `Delivers Phase 6 in two reviewed commits: localized pilot landing and lead intake; public docs with build-time OpenAPI reference, generated reason-code glossary, and webhook guide; plus draft privacy, terms, and prohibited-use pages. Verification: 511 tests; 39 static public pages; build, copy lint, formatter-after-build, lint, typecheck, and diff check pass. Known pre-launch gates: Lighthouse ≥95 remains unmeasured; legal pages are DRAFT pending counsel; lead expiry is marked at 180 days and requires manual handling until the Phase 7 purge job.`
+
+After the commit, push, and draft-PR creation, record the commit hash, remote branch, and PR URL in `CTO-REPORT.md`; set `STATE.md` to `awaiting_pm_review` with Step `6.2`; and stop. Do not edit product code, begin Step 7.1, merge, deploy, enable production SMTP, process real customer data, add payments, or remove/approve the DRAFT legal banner.
 
 ## Explicit exceptional permissions
 
-- [x] Commit — scope: `one atomic Step 6.1 commit containing only the listed paths on feat/phase-6-public-site; message exactly “web: add localized pilot landing page”.`
+- [x] Commit — scope: `one atomic Step 6.2 commit containing only the listed paths on feat/phase-6-public-site; message exactly “web: add public docs and draft legal pages”.`
 - [x] Push — scope: `only feat/phase-6-public-site to origin; never main.`
-- [ ] Create/update draft pull request — scope: `Not authorized. Phase 6 receives one draft PR only after Step 6.2 is approved and synchronized.`
+- [x] Create draft pull request — scope: `one new draft PR from feat/phase-6-public-site into main; title and body exactly as specified above.`
 - [ ] Merge — scope: `N/A — product owner merges manually in GitHub.`
 - [ ] Deploy — scope: `N/A`
 - [ ] Delete material data — scope: `N/A`
 - [ ] Enable production SMTP — scope: `N/A`
 - [ ] Process real customer data — scope: `N/A`
 - [ ] Add a payment provider — scope: `N/A`
-- [ ] Change legal/privacy policy — scope: `N/A`
+- [ ] Change legal/privacy policy — scope: `N/A — pages remain DRAFT pending counsel.`
 
 ## State transition
 
 - State status: `ready_for_cto`
-- Current step after decision: `6.1` (approved Git-sync handoff only)
+- Current step after decision: `6.2` (approved Git-sync and Phase 6 draft-PR handoff only)
 - Owner: `Claude Code`
-- Next action: `Commit and push only the authorized Step 6.1 paths, update the relay with the resulting hash and remote branch, set awaiting_pm_review, and stop.`
+- Next action: `Commit, push, and create only the authorized Phase 6 draft PR; report the result, set awaiting_pm_review, and stop.`
