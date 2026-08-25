@@ -1,6 +1,5 @@
 import { randomBytes } from 'node:crypto'
 import cookie from '@fastify/cookie'
-import cors from '@fastify/cors'
 import fp from 'fastify-plugin'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import {
@@ -60,16 +59,6 @@ export const internalRoutes = fp<InternalRouteOptions>(async (app: FastifyInstan
   const clock = opts.clock ?? Date.now
 
   await app.register(cookie)
-  await app.register(cors, {
-    // A function origin: matching requests get the origin echoed, everything
-    // else gets NO CORS headers at all - the browser refuses the response.
-    origin: (origin, callback) => {
-      callback(null, origin === opts.dashboardOrigin)
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'X-CSRF-Token'],
-  })
 
   type Authed = { session: SessionData }
 

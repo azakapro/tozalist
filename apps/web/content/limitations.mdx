@@ -1,0 +1,35 @@
+# Limitations
+
+Honest tools state their limits. These are ours.
+
+## No delivery promise
+
+A verdict is a risk signal computed at check time. Whether a message arrives
+depends on the receiving server at the moment of sending — no service can
+truthfully promise delivery, and TozaList does not.
+
+## "Unknown" and catch-all are not failures
+
+Some servers refuse to reveal whether a mailbox exists; catch-all domains
+accept mail for every address. In both cases the honest answer is `unknown`.
+Keep those addresses. Deleting `unknown` results throws away real subscribers.
+
+## Phone checks are format-only
+
+Phone validation checks a number against its national numbering plan —
+offline. It never contacts a carrier, never determines who owns a number,
+and never checks whether a number is active. A `PHONE_OK` means "the format
+fits", nothing more.
+
+## Retention and deletion
+
+Results live for the retention period your organization chooses (7, 30 or 90
+days) and are then deleted, batch files included. Deleting your organization
+schedules removal of everything. See the [Privacy Policy](../privacy) data map.
+
+## Not for decisions about people
+
+Results describe addresses and numbers, not people. They must not be used for
+consumer, credit, employment or insurance screening, or any automated decision
+affecting a person's access to services. See the
+[Prohibited Use Policy](../prohibited-use).

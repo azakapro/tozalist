@@ -54,12 +54,25 @@ The repository stays synchronized without allowing unreviewed work onto `main`:
 
 1. Claude Code works only on a named feature branch. It never pushes directly to `main` and never merges a pull request.
 2. A roadmap step is implemented and PM-reviewed locally before any GitHub write. `CORRECTION_REQUIRED`, `BLOCKED`, and `STOP` grant no GitHub write permission.
-3. When PM approves a step, the decision may grant a **Git sync authorization** that names the exact step, feature branch, and allowed actions: one atomic commit containing only that reviewed step and relay records, then a push of that branch. Claude Code must report the resulting commit hash and remote branch, then stop; it must not start the next roadmap step in that sync action.
-4. The PM may separately authorize creating or updating a draft pull request for a named, already-pushed branch. A pull request is a review handoff, not a merge authorization.
+3. When PM approves a step, the decision may grant a **Git sync authorization** that names the exact step and feature branch: one atomic commit containing only that reviewed step and relay records, then a push of that branch. This is the normal cadence: **one reviewed step, one small commit, one branch push**. Claude Code must report the resulting commit hash and remote branch, then stop; it must not start the next roadmap step in that sync action.
+4. Create or update a draft pull request **only after a named module is complete**, not after every step. A module defaults to one roadmap phase (for example, Phase 6: Steps 6.1–6.2), unless PM names a smaller independently releasable module in advance. The final step's PM decision may authorize that draft PR. A pull request is a review handoff, not a merge authorization.
 5. Only the product owner manually merges a reviewed pull request in GitHub. After a merge, PM first fetches `origin/main` and records the merged commit before assigning new implementation work. A fresh feature branch must start from that updated `origin/main` for the next independently reviewable work package.
 6. Every permission remains narrow and explicit. It must state whether it permits `commit`, `push`, and/or `create/update PR`; it must never be inferred from an `APPROVED` decision alone.
 
 This policy makes GitHub a current, auditable copy of PM-approved work while preserving the product owner's final merge control.
+
+### Default module boundaries
+
+Unless a PM decision explicitly says otherwise, use these PR boundaries:
+
+| Module | Roadmap steps | GitHub cadence |
+|---|---|---|
+| Public site | 6.1–6.2 | Commit/push after each approved step; one draft PR after 6.2. |
+| Lifecycle and pilot billing | 7.1–7.2 | Commit/push after each approved step; one draft PR after 7.2. |
+| Hardening | 8.1–8.2 | Commit/push after each approved step; one draft PR after 8.2. |
+| Deployment and beta kit | 9.1–9.2 | Commit/push after each approved step; one draft PR after 9.2. |
+
+The existing draft PR #3 is a completed dashboard-correction handoff that predates this cadence. It remains untouched until the product owner manually merges or explicitly asks to close it.
 
 ### 3b. Sync handoff after an approved step
 

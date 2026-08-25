@@ -1,12 +1,12 @@
 # PM–CTO Relay State
 
 - Status: `ready_for_cto`
-- Current step: `5.2`
-- Current step title: Check, batch, and usage UI
+- Current step: `6.2`
+- Current step title: Public docs and legal pages — approved Git-sync and Phase 6 draft-PR handoff only
 - Owner: Claude Code
-- Completed through: Step `5.2` (approved; Git sync handoff pending)
-- Last verified test total: 477 passing tests across the workspace (core 173, shared 43, db 52, api 136, worker 50, dashboard 23); PM independently reran build, tests, lint, typecheck, format, and diff checks on 2026-08-25.
-- GitHub baseline: `origin/main` is `dc6dd26` (the product owner's merged PR #2).
-- Next action: Git sync only for the approved Step 5.2 correction: create the exact authorized commit on `fix/step-5.2-check-api-retry`, push that branch only, and create the authorized draft PR. Report the hash, branch, and PR URL; set `awaiting_pm_review`; stop. Do not begin Step 6.1.
+- Completed through: Step `6.1` — commit `5370fea` is verified on `origin/feat/phase-6-public-site`; Step `6.2` and its documentation release-integrity correction are PM-approved locally.
+- Last verified test total: 511 passing tests across the workspace (core 173, shared 43, db 52, api 146, worker 50, dashboard 23, web 24); database preparation, copy lint, build with fresh OpenAPI export and 39 static pages, formatter after build, lint, typecheck, and diff check pass. Lighthouse is `NOT_RUN` and remains a Phase 9 pre-launch gate.
+- Last verification: full PM review, 2026-08-25
+- Next action: Claude Code performs only the explicitly authorized Step 6.2 commit, branch push, and single Phase 6 draft-PR creation; records the resulting hash, branch, and PR URL; sets this file to `awaiting_pm_review`; and stops. No product work or merge.
 
-No product-code change, later roadmap step, direct main push, merge, deployment, data deletion, production SMTP, real customer-data processing, payment work, or legal/privacy-policy change is authorized during this handoff.
+Do not begin Step 7.1 until the PM verifies the Git/PR handoff and the product owner manually merges the Phase 6 draft PR into `main`.

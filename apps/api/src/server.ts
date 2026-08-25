@@ -25,6 +25,7 @@ const app = buildApp({
     batchQueue,
     smtpEnabled: config.smtpEnabled,
     ...(config.internalAuth !== null ? { internalAuth: config.internalAuth } : {}),
+    webOrigin: config.webOrigin,
   },
 })
 

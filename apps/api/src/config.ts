@@ -22,6 +22,8 @@ export type ApiConfig = {
     dashboardOrigin: string
     cookieSecure: boolean
   } | null
+  /** Public marketing-site origin for CORS and the pilot-request endpoint. */
+  readonly webOrigin: string
 }
 
 type Env = Readonly<Record<string, string | undefined>>
@@ -38,6 +40,10 @@ export function readApiConfig(env: Env = process.env): ApiConfig {
       rawRedis === undefined || rawRedis.trim() === '' ? DEFAULT_REDIS_URL : rawRedis.trim(),
     smtpEnabled: parseSmtpEnabled(env.SMTP_ENABLED),
     internalAuth: parseInternalAuth(env),
+    webOrigin:
+      env.WEB_ORIGIN === undefined || env.WEB_ORIGIN.trim() === ''
+        ? 'http://localhost:3000'
+        : env.WEB_ORIGIN.trim(),
   }
 }
 

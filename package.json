@@ -21,7 +21,8 @@
     "db:test:prepare": "pnpm --filter @tozalist/db db:test:prepare",
     "db:seed": "pnpm --filter @tozalist/db db:seed",
     "api:create-key": "pnpm --filter @tozalist/api create-key",
-    "api:revoke-key": "pnpm --filter @tozalist/api revoke-key"
+    "api:revoke-key": "pnpm --filter @tozalist/api revoke-key",
+    "web:lint-copy": "pnpm --filter @tozalist/web lint-copy"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
