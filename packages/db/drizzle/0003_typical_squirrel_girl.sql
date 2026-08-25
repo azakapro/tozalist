@@ -1,0 +1,1 @@
+ALTER TABLE "webhook_deliveries" ADD COLUMN "attempt_log" jsonb DEFAULT '[]'::jsonb NOT NULL;

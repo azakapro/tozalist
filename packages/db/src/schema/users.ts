@@ -1,4 +1,5 @@
-import { index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import { index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import { userRoleEnum } from './enums.js'
 import { organizations } from './organizations.js'
 
@@ -25,6 +26,15 @@ export const users = pgTable(
     passwordHash: text('password_hash').notNull(),
     role: userRoleEnum('role').notNull().default('member'),
     mfaSecret: text('mfa_secret'),
+    /**
+     * SHA-256 hashes of unused single-use recovery codes. Plaintext codes are
+     * shown once at MFA enrollment and never stored; consuming a code removes
+     * its hash.
+     */
+    mfaRecoveryCodes: jsonb('mfa_recovery_codes')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },

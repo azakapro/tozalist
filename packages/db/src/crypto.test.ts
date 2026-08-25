@@ -17,6 +17,25 @@ describe('sha256Hex', () => {
 })
 
 describe('generateApiKey', () => {
+  it('produces tzl_live_ plus exactly 32 base62 characters', () => {
+    for (let i = 0; i < 20; i++) {
+      const key = generateApiKey()
+      expect(key.plaintext).toMatch(/^tzl_live_[0-9A-Za-z]{32}$/)
+      expect(key.plaintext).toHaveLength('tzl_live_'.length + 32)
+    }
+  })
+
+  it('uses the whole base62 alphabet across many keys (no truncated range)', () => {
+    const seen = new Set<string>()
+    for (let i = 0; i < 200; i++) {
+      for (const ch of generateApiKey().plaintext.slice('tzl_live_'.length)) {
+        seen.add(ch)
+      }
+    }
+    // 200 keys x 32 chars = 6400 draws over 62 symbols: every symbol appears.
+    expect(seen.size).toBe(62)
+  })
+
   it('returns a key whose stored hash matches the plaintext', () => {
     const key = generateApiKey()
     expect(key.keyHash).toBe(sha256Hex(key.plaintext))
