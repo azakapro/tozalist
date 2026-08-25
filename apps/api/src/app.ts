@@ -18,6 +18,7 @@ import type { HostResolver, ObjectStorage } from '@tozalist/shared'
 import { batchRoutes } from './routes/batches.js'
 import { webhookRoutes } from './routes/webhooks.js'
 import { internalRoutes } from './internal/routes.js'
+import { internalBillingRoutes } from './internal/billing.js'
 import { internalProductRoutes } from './internal/product.js'
 import type { BatchQueuePublisher, EngineCaller, SmtpQueuePublisher } from './types.js'
 
@@ -45,6 +46,8 @@ export type AppDeps = {
     dashboardOrigin: string
     cookieSecure: boolean
     clock?: () => number
+    /** Display-only bank-transfer instructions for invoice requests. */
+    billingBankDetails?: string
   }
   /** Public marketing-site origin; providing it registers /public/leads. */
   webOrigin?: string
@@ -196,6 +199,15 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
               dashboardOrigin: internalAuth.dashboardOrigin,
               ...(internalAuth.clock !== undefined ? { clock: internalAuth.clock } : {}),
               ...(storage !== undefined ? { storage } : {}),
+            })
+            await internalScope.register(internalBillingRoutes, {
+              db,
+              session,
+              ...(internalAuth.clock !== undefined ? { clock: internalAuth.clock } : {}),
+              ...(storage !== undefined ? { storage } : {}),
+              ...(internalAuth.billingBankDetails !== undefined
+                ? { bankDetails: internalAuth.billingBankDetails }
+                : {}),
             })
             await internalScope.register(internalProductRoutes, {
               db,

@@ -2,90 +2,81 @@
 
 ## Review
 
-- Step ID: `7.1` — Retention, deletion, and export (including the lifecycle-durability and accounting-completion correction).
-- Baseline checked: `YES — feat/phase-7-lifecycle-billing starts at merged origin/main commit 9589580.`
-- CTO report, actual diff, recovery paths, ledger migration, export serialization, route authorization, and affected tests reviewed: `YES`.
-- Scope checked: `YES — changes remain within Step 7.1. No payment-provider, production deployment, legal/privacy-copy, or GitHub write has occurred.`
-- Storage durability: `APPROVED — DeleteObjects now fails closed on per-key errors; expired batch and org cleanup keep their database state retryable until object removal succeeds; organisation prefixes are re-listed before purged_at is written; the account wipe locks the active organisation while enumerating, deletes objects before rows, and rolls back database work on a storage failure.`
-- Accounting and retention: `APPROVED — migration 0006 retains normal append-only UPDATE/DELETE/TRUNCATE protection, permits only transaction-local, database-age-gated deletion after three years, and removes anonymized organisation rows only after their retained ledger is empty. The stored 180-day lead expiry remains the accepted canonical implementation.`
-- Privacy and security: `APPROVED — export and wipe retain admin + MFA + CSRF checks; signed download URLs are neither logged nor audited; storage failures surface only fixed/generic responses; customer-controlled self-service-export cells are neutralized before CSV quoting. No client-secret, unsafe HTML, or unsafe navigation path was introduced by this step.`
-- Acceptance evidence: `APPROVED — CTO reports db preparation plus real test-MinIO fault injection; PM independently reran build, the full workspace test suite (541 passing), lint, typecheck, formatting after build, and diff check. PM did not rerun db:test:prepare because this review environment has no DATABASE_URL_TEST and must not substitute a development database for destructive setup.`
-- Carry-forward note: `The pre-existing Step 4.1 batch-result CSV is still a separate formula-injection hardening candidate. It was not altered in this scoped correction; the new self-service data export is protected. Track the older result-download path in the Phase 8 security pass before production launch.`
+- Step ID: `7.2` — Pilot billing, including the authoritative manual-grant correction.
+- Baseline checked: `YES — all reviewed Step 7.2 work is local on feat/phase-7-lifecycle-billing above the synchronized Step 7.1 commit 17f9055.`
+- Scope checked: `PASS — the implementation remains invoice-and-ledger billing only. There is no Click/Payme/provider SDK, checkout, card processing, payment webhook, merchant credential, production action, or legal/privacy-policy change.`
+- Accounting correction: `PASS — grantCreditsWithAudit now validates a positive safe integer and canonical non-blank note before reference derivation or transaction work; invalid input returns only the fixed invalid_input token. Direct database tests prove negative, zero, fractional, non-finite, oversized, empty, and whitespace-only grants leave zero ledger and audit rows. Trimmed-note replays collide and the stored ledger note is canonical.`
+- Privacy and access control: `PASS — invoice creation is admin + MFA + CSRF gated; statement links are scoped to the authenticated organisation, expire after one hour, and their signed URLs are neither logged nor audited. Bank instructions remain environment-only and are absent from audit and log output. Invoice-request rows hold only organisation, requester, plan, and timestamps and are deleted with the organisation purge.`
+- Retention decision: `ACCEPTED FOR THIS STEP — before the DRAFT privacy policy is finalized, its data map must explicitly cover invoice-request records and their organisation-lifetime retention. This approval does not authorize any legal-copy change.`
+- Plan and statement evidence: `PASS — the three pilot plans are one client-safe core configuration used by both public-web and dashboard rendering; statement boundaries are [start, end), ledger notes are HTML-escaped, statements delete with the organisation prefix, and a test prevents payment-provider dependencies.`
+- Verification independently rerun by PM: `PASS — pnpm -r build; pnpm -r test (569 tests: core 177, shared 48, db 71, api 160, worker 55, dashboard 32, web 26); pnpm lint; pnpm -r typecheck; pnpm format:check after build; and git diff --check.`
+- Database-preparation note: `A bare pnpm db:test:prepare in the PM shell reports DATABASE_URL_TEST is not exported. The full test run did execute all 71 database tests, including the direct billing integration tests, against the isolated test setup; the CTO separately reports migration preparation passed. This local shell-environment gap does not change the reviewed application behavior, but deployment/CI must provide DATABASE_URL_TEST explicitly wherever that standalone preparation script is used.`
 
 ## Decision
 
 - Decision: `APPROVED`
-- Rationale: `The focused correction closes the previously blocking object-storage failure, accounting-retention, batch-draining, and spreadsheet-formula risks with testable retry behavior. The remaining batch-result CSV note is pre-existing and outside the reviewed self-service-export path; it is recorded as a Phase 8 hardening gate, not a reason to hold Step 7.1.`
+- Rationale: `The focused accounting defect is corrected at the authoritative database boundary, the direct regression evidence is meaningful, and Step 7.2 meets its roadmap acceptance criteria. Together with synchronized Step 7.1, Phase 7 is ready for its single draft pull-request handoff.`
 
-## Exact next action — Step 7.1 Git sync only
+## Explicit Phase 7 Git sync authorization
 
-Claude Code must remain on `feat/phase-7-lifecycle-billing` and perform no product work.
+Claude Code may perform this handoff only. Do not edit product code, begin Step 8.1, merge, deploy, process real data, add a payment provider, or change legal/privacy policy.
 
-1. Reconfirm that the working tree contains exactly the reviewed Step 7.1 files and relay records listed below; stop and report if anything else is present.
-2. Create one atomic commit with this exact message:
+1. On `feat/phase-7-lifecycle-billing`, verify the working tree contains exactly these reviewed Step 7.2 paths before staging:
 
-   ```text
-   lifecycle: add retention, export, and deletion controls
-   ```
+   - `.env.example`
+   - `TODO-PAYMENTS.md`
+   - `apps/api/package.json`
+   - `apps/api/src/app.ts`
+   - `apps/api/src/billing.integration.test.ts`
+   - `apps/api/src/billing/statement-html.ts`
+   - `apps/api/src/cli/billing-grant.ts`
+   - `apps/api/src/cli/billing-statement.ts`
+   - `apps/api/src/config.ts`
+   - `apps/api/src/internal/billing.ts`
+   - `apps/api/src/no-payment-provider.test.ts`
+   - `apps/dashboard/app/billing/page.tsx`
+   - `apps/dashboard/lib/messages.ts`
+   - `apps/dashboard/lib/shell.tsx`
+   - `apps/dashboard/package.json`
+   - `apps/dashboard/tests/billing.test.tsx`
+   - `apps/web/app/[locale]/page.tsx`
+   - `apps/web/lib/messages.ts`
+   - `apps/web/tests/pricing-plans.test.tsx`
+   - `apps/worker/src/lifecycle/lifecycle.integration.test.ts`
+   - `docs/agent-loop/CTO-REPORT.md`
+   - `docs/agent-loop/PM-DECISION.md`
+   - `docs/agent-loop/STATE.md`
+   - `package.json`
+   - `packages/core/src/index.ts`
+   - `packages/core/src/plans.test.ts`
+   - `packages/core/src/plans.ts`
+   - `packages/db/drizzle/0007_colossal_bushwacker.sql`
+   - `packages/db/drizzle/meta/0007_snapshot.json`
+   - `packages/db/drizzle/meta/_journal.json`
+   - `packages/db/src/billing.integration.test.ts`
+   - `packages/db/src/billing.ts`
+   - `packages/db/src/index.ts`
+   - `packages/db/src/lifecycle.ts`
+   - `packages/db/src/schema/index.ts`
+   - `packages/db/src/schema/invoice-requests.ts`
+   - `packages/shared/src/index.ts`
+   - `packages/shared/src/s3.ts`
+   - `pnpm-lock.yaml`
 
+   If the exact set differs, stop without staging or committing.
+2. Commit those paths in one atomic commit with this exact message: `billing: add invoice-based pilot billing`.
 3. Push only `feat/phase-7-lifecycle-billing` to `origin`. Do not push or modify `main`.
-4. Do not create or update a pull request; the single Phase 7 draft PR is due only after Step 7.2 is approved and synchronized.
-5. Update `CTO-REPORT.md` with the commit hash and remote branch, set `STATE.md` to `awaiting_pm_review` for PM sync verification, and stop. Do not begin Step 7.2.
-
-Reviewed commit scope:
-
-```text
-.env.example
-THIRD_PARTY_LICENSES/types-yauzl-MIT.txt
-THIRD_PARTY_LICENSES/types-yazl-MIT.txt
-THIRD_PARTY_LICENSES/yauzl-MIT.txt
-THIRD_PARTY_LICENSES/yazl-MIT.txt
-apps/api/package.json
-apps/api/scripts/export-openapi.ts
-apps/api/src/app.ts
-apps/api/src/internal/data-export.ts
-apps/api/src/internal/routes.ts
-apps/api/src/lifecycle.integration.test.ts
-apps/api/src/openapi/operations.ts
-apps/api/src/routes/email-check.ts
-apps/api/src/routes/phone-check.ts
-apps/dashboard/app/settings/page.tsx
-apps/dashboard/lib/data-controls.tsx
-apps/dashboard/lib/messages.ts
-apps/dashboard/tests/data-controls.test.tsx
-apps/worker/src/lifecycle/lifecycle.integration.test.ts
-apps/worker/src/lifecycle/processor.ts
-apps/worker/src/lifecycle/worker.ts
-apps/worker/src/main.ts
-apps/worker/src/test/support.ts
-docs/agent-loop/CTO-REPORT.md
-docs/agent-loop/PM-DECISION.md
-docs/agent-loop/STATE.md
-packages/db/drizzle/0005_gigantic_the_hand.sql
-packages/db/drizzle/0006_ledger_retention_purge.sql
-packages/db/drizzle/meta/0005_snapshot.json
-packages/db/drizzle/meta/0006_snapshot.json
-packages/db/drizzle/meta/_journal.json
-packages/db/src/export.ts
-packages/db/src/index.ts
-packages/db/src/lifecycle.integration.test.ts
-packages/db/src/lifecycle.ts
-packages/db/src/schema/organizations.ts
-packages/shared/src/checks.ts
-packages/shared/src/index.ts
-packages/shared/src/s3.test.ts
-packages/shared/src/s3.ts
-pnpm-lock.yaml
-```
+4. Create one **draft** pull request from `feat/phase-7-lifecycle-billing` into `main`, titled `Phase 7: lifecycle controls and pilot billing`. Its body must summarize Steps 7.1–7.2, cite the 569-test verification, state that billing is invoice-and-ledger only with no payment provider, flag the DRAFT privacy-policy data-map prerequisite, and state that the product owner manually merges it.
+5. Record the resulting commit hash, remote branch, and PR URL in `CTO-REPORT.md`; set `STATE.md` to `awaiting_pm_review`, owner PM, with remote-handoff verification and product-owner merge as the next actions; then stop.
 
 ## Explicit exceptional permissions
 
-- [x] Commit — scope: `one atomic Step 7.1 commit containing only the reviewed paths above, on feat/phase-7-lifecycle-billing, with the exact message stated above.`
-- [x] Push — scope: `only feat/phase-7-lifecycle-billing to origin after that commit.`
-- [ ] Create/update draft pull request — scope: `N/A — deferred until Step 7.2 completes and is approved.`
-- [ ] Merge — scope: `N/A — product owner only.`
+- [x] Commit — scope: `Only the exact 39 reviewed Step 7.2 paths listed above, as one atomic commit on feat/phase-7-lifecycle-billing.`
+- [x] Push — scope: `Only feat/phase-7-lifecycle-billing to origin; never main.`
+- [x] Create draft pull request — scope: `One new draft PR from feat/phase-7-lifecycle-billing to main with the exact title above.`
+- [ ] Merge — scope: `Product owner only, manually in GitHub.`
 - [ ] Deploy — scope: `N/A`.
-- [ ] Delete material data — scope: `N/A — no new destructive test or production action is authorized by this sync handoff.`
+- [ ] Delete material data — scope: `N/A — only isolated test fixtures/objects permitted during verification.`
 - [ ] Enable production SMTP — scope: `N/A`.
 - [ ] Process real customer data — scope: `N/A`.
 - [ ] Add a payment provider — scope: `N/A`.
@@ -94,6 +85,6 @@ pnpm-lock.yaml
 ## State transition
 
 - State status: `ready_for_cto`
-- Current step after decision: `7.1` (Git sync handoff only)
+- Current step: `7.2` (approved sync handoff only)
 - Owner: `Claude Code`
-- Next action: `Perform only the explicitly authorized commit and push, report the hash/branch, set awaiting_pm_review, and stop.`
+- Next action: `Perform only the explicitly authorized Phase 7 commit, push, and draft-PR handoff; report and stop.`

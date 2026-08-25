@@ -49,6 +49,8 @@ export {
   exportKeyCreatedAtMs,
   exportObjectKey,
   orgObjectPrefix,
+  statementKeyMonth,
+  statementObjectKey,
   batchResultKey,
   createObjectStorage,
   ensureDeleteSucceeded,

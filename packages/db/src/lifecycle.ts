@@ -5,6 +5,7 @@ import {
   apiKeys,
   batches,
   creditLedger,
+  invoiceRequests,
   emailChecks,
   leads,
   organizations,
@@ -116,6 +117,7 @@ export type OrgPurgeResult = {
   phoneChecks: number
   batches: number
   webhookEndpoints: number
+  invoiceRequests: number
 }
 
 /**
@@ -165,6 +167,10 @@ export async function hardDeleteOrganizationData(
       .delete(webhookEndpoints)
       .where(eq(webhookEndpoints.orgId, orgId))
       .returning({ id: webhookEndpoints.id })
+    const deletedInvoiceRequests = await tx
+      .delete(invoiceRequests)
+      .where(eq(invoiceRequests.orgId, orgId))
+      .returning({ id: invoiceRequests.id })
 
     await tx
       .update(organizations)
@@ -185,6 +191,7 @@ export async function hardDeleteOrganizationData(
           phone_checks: deletedPhone.length,
           batches: deletedBatches.length,
           webhook_endpoints: deletedEndpoints.length,
+          invoice_requests: deletedInvoiceRequests.length,
         },
       },
       now,
@@ -197,6 +204,7 @@ export async function hardDeleteOrganizationData(
       phoneChecks: deletedPhone.length,
       batches: deletedBatches.length,
       webhookEndpoints: deletedEndpoints.length,
+      invoiceRequests: deletedInvoiceRequests.length,
     }
   })
 }

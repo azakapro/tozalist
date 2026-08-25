@@ -63,6 +63,17 @@ export function exportObjectKey(orgId: string, createdAtMs: number, id: string):
   return `org/${orgId}/exports/${createdAtMs}-${id}.zip`
 }
 
+/** A monthly billing statement; kept while the organisation lives, removed by the org purge. */
+export function statementObjectKey(orgId: string, month: string): string {
+  return `org/${orgId}/statements/${month}.html`
+}
+
+/** The YYYY-MM of a statement key, or null for other keys. */
+export function statementKeyMonth(key: string): string | null {
+  const match = /^org\/[0-9a-f-]+\/statements\/(\d{4}-\d{2})\.html$/.exec(key)
+  return match?.[1] ?? null
+}
+
 /** The embedded creation time of an export key, or null for other keys. */
 export function exportKeyCreatedAtMs(key: string): number | null {
   const match = /^org\/[0-9a-f-]+\/exports\/(\d+)-[0-9a-f-]+\.zip$/.exec(key)

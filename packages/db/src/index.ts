@@ -142,3 +142,15 @@ export {
   type ExportPager,
 } from './export.js'
 export * from './schema/index.js'
+export {
+  createInvoiceRequest,
+  getBillingSummary,
+  getMonthlyStatement,
+  grantCreditsWithAudit,
+  grantReference,
+  monthStartUtc,
+  parseStatementMonth,
+  type BillingSummary,
+  type GrantResult,
+  type MonthlyStatement,
+} from './billing.js'

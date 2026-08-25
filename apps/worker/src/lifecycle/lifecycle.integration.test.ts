@@ -148,9 +148,11 @@ describe.skipIf(!hasIntegrationEnv)('lifecycle sweep (integration)', () => {
       events: ['batch.completed'],
     })
     await db.insert(creditLedger).values({ orgId: purgeOrgId, delta: 42, reason: 'grant' })
-    // A stray export under the purged org must go too.
+    // A stray export AND a billing statement under the purged org must go
+    // too: the whole prefix is the retention path for org-scoped documents.
     const purgeExport = exportObjectKey(purgeOrgId, NOW.getTime(), randomUUID())
     await put(purgeExport, 'zip-bytes')
+    await put(`org/${purgeOrgId}/statements/2026-07.html`, '<html>statement</html>')
 
     // Leads: one expired, one live.
     await db.insert(leads).values([

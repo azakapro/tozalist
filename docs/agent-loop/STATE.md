@@ -1,12 +1,12 @@
 # PM–CTO Relay State
 
 - Status: `ready_for_cto`
-- Current step: `7.1`
-- Current step title: Retention, deletion, and export — approved Git sync handoff only
+- Current step: `7.2`
+- Current step title: Pilot billing — approved Phase 7 Git sync handoff
 - Owner: Claude Code
-- Completed through: Phase 6 merged as `9589580`; Step `7.1`, including the lifecycle durability and accounting-completion correction, is PM-approved locally on `feat/phase-7-lifecycle-billing` and must now be committed and pushed before any further roadmap work.
-- Last verified test total: 541 passing tests across the workspace (core 173, shared 48, db 62, api 153, worker 55, dashboard 26, web 24). CTO also reported successful isolated database preparation and real MinIO fault-injection coverage. PM independently reran build, all 541 tests, lint, typecheck, format check after build, and diff check; PM did not rerun destructive db preparation because this environment has no `DATABASE_URL_TEST`.
+- Completed through: Step `7.1` is synchronized as commit `17f90556d2bc65d24b38f751fd842eab3b5d0a48` on `origin/feat/phase-7-lifecycle-billing`; corrected Step `7.2` is PM-approved locally on the same branch. Phase 7 has no pull request yet.
+- Last verified test total: 569 passing tests across the workspace (core 177, shared 48, db 71, api 160, worker 55, dashboard 32, web 26), independently rerun by the PM with build, copy lint during the web build, lint, typecheck, format-after-build, and diff check. Lighthouse is `NOT_RUN` and remains a Phase 9 pre-launch gate.
 - Last verification: PM review, 2026-08-25
-- Next action: Claude Code performs only the explicit Step 7.1 Git handoff in `PM-DECISION.md`: verify the exact reviewed file list, create the named atomic commit, push only `feat/phase-7-lifecycle-billing`, record the hash and branch in `CTO-REPORT.md`, set this file to `awaiting_pm_review`, and stop. No PR and no Step 7.2 work.
+- Next action: Claude Code performs only the exact Phase 7 Git sync authorized in `PM-DECISION.md`: verify the 39-path scope, commit `billing: add invoice-based pilot billing`, push only `feat/phase-7-lifecycle-billing`, create the one authorized Phase 7 draft PR, report its commit/hash/URL, set this file to `awaiting_pm_review`, and stop. No product work, merge, deployment, provider, legal/privacy, or production action.
 
-Do not begin Step 7.2 or any later roadmap step until the PM verifies the Git sync and records the next assignment.
+Do not begin Step 8.1 or any later roadmap step until the PM verifies the remote handoff and the product owner has manually merged the Phase 7 draft pull request into `main`.

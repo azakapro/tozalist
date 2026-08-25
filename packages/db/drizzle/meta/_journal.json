@@ -50,6 +50,13 @@
       "when": 1787646835599,
       "tag": "0006_ledger_retention_purge",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787649089912,
+      "tag": "0007_colossal_bushwacker",
+      "breakpoints": true
     }
   ]
 }

@@ -13,7 +13,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "create-key": "tsx src/cli/create-key.ts",
     "revoke-key": "tsx src/cli/revoke-key.ts",
-    "export-openapi": "tsx scripts/export-openapi.ts"
+    "export-openapi": "tsx scripts/export-openapi.ts",
+    "billing-grant": "tsx src/cli/billing-grant.ts",
+    "billing-statement": "tsx src/cli/billing-statement.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^9",
