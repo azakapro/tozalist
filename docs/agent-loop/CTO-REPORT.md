@@ -1,37 +1,42 @@
-# CTO Report — Step 5.2 correction (/check API-unreachable retry)
+# CTO Report — Step 6.1 correction (CORS trust boundary, rate-limit member, badge localization)
 
 ## Step and outcome
 
-Step `5.2`, correction cycle per `PM-DECISION.md` (2026-08-25T11:08:00+0500). The `/check` page now renders the shared API-unreachable state with its Retry button for non-credit failures, matching `/batches` and `/usage`. Work was done on the required fresh local branch `fix/step-5.2-check-api-retry`, created from the fetched `origin/main` baseline (`dc6dd26`, the PR #2 merge), with the uncommitted relay records retained. Nothing was committed, pushed, PR'd, merged, or deployed.
+Step `6.1`, correction cycle per `PM-DECISION.md`. The public-site/dashboard trust boundary is restored with route-separated CORS, the public rate limiter uses collision-safe CSPRNG members, the four sample verdict badges are localized, and lead-email normalization preserves the local part. Still on `feat/phase-6-public-site`, local-only, uncommitted. No Step 6.2 work.
 
 ## Correction implemented
 
-1. `apps/dashboard/app/check/page.tsx`: the generic error paragraph is gone. Any non-402 request failure now renders the existing shared `ApiUnreachable` component with its Retry button. No raw error text can surface — the component shows only the fixed translated message.
-2. **Retry repeats the exact submitted check**: the page captures the last submitted `{kind, value}` pair at submit time, and Retry re-runs that request — even when the user has since edited the input field or switched tabs. The 402 no-credits behavior is unchanged (still the `NoCredits` state, never the retry state).
-3. Email and phone tabs share one code path (`runCheck`), so both get identical retry behavior.
+1. **Route-separated CORS** — the root-level allowlist is gone. Two encapsulated scopes now carry their own explicit policies via a new `addScopedCors` helper (`apps/api/src/cors.ts`): an onRequest header hook plus a preflight OPTIONS route, both scope-local, so policies structurally cannot bleed:
+   - `/internal/*`: `DASHBOARD_ORIGIN` only, credentialed, GET/POST, Content-Type + X-CSRF-Token.
+   - `/public/leads`: `WEB_ORIGIN` only, **no** `Access-Control-Allow-Credentials` ever, POST only, Content-Type only.
+   - Non-matching origins receive no Access-Control-* headers anywhere.
+   Implementation note: the first attempt used two sibling `@fastify/cors` registrations, which deadlocked at boot and leaked scope; the plugin was replaced with the explicit ~40-line scoped implementation and removed from dependencies (license record deleted accordingly).
+2. **Collision-safe rate-limit member** — the Lua `math.random()` suffix in `public-leads.ts` is replaced by a Node `randomUUID()` passed per request as an ARGV, matching the API-key limiter's rule. The Lua operation remains a single atomic script; failure remains fail-closed.
+3. **Badge localization** — the four sample-result badges render from new locale keys: uz `yaroqli/xavfli/noma'lum/yaroqsiz`, ru `рабочий/рискованный/неизвестно/нерабочий`, en unchanged; the sample descriptions lost their embedded English tokens in all locales. The copy-lint gate stays clean.
+4. **Lead email normalization** — trimmed, domain lowercased, local part preserved byte-for-byte (RFC 5321), replacing the previous full lowercase.
+
+All retained behavior verified unchanged: honeypot success-without-storage, strict body bounds, 180-day lead expiry, no personal-data logging, honest no-delivery copy, banned-copy prebuild gate.
 
 ## Files changed (correction only)
 
-- `apps/dashboard/app/check/page.tsx` — shared unreachable state + captured-request retry.
-- `apps/dashboard/tests/check-retry.test.tsx` — new (3 tests).
+`apps/api/src/cors.ts` (new) · `apps/api/src/app.ts` (scoped registration) · `apps/api/src/routes/public-leads.ts` (member + normalization) · `apps/api/src/public-leads.integration.test.ts` (+3 tests, 1 updated) · `apps/web/lib/messages.ts` (badge keys, de-tokenized samples) · `apps/web/app/[locale]/page.tsx` (badges from messages) · `apps/web/tests/locales.test.tsx` (+1) · `apps/api/package.json`/`pnpm-lock.yaml` (−@fastify/cors) · `THIRD_PARTY_LICENSES/` (record removed with the dependency).
 
-No API, worker, database, engine, public web, auth, accounting, retention, or GitHub configuration changes.
+## Required proof (all passing)
 
-## Required test coverage (all passing, mocked API)
-
-- **Fail → state → Retry → result**: the mocked API rejects with a hostile error embedding `ECONNREFUSED` and an internal detail; the shared state and Retry appear; neither error string is anywhere in the DOM; the user then edits the input to a half-typed value, clicks Retry, and the assertion proves the second request is byte-identical to the ORIGINAL submission; on recovery the state disappears and the verdict card renders.
-- **402 still yields NoCredits**, never the retry state.
-- **Phone tab parity**: same fail/retry/recover flow through `/internal/check/phone`.
-- The existing CRITICAL test that `unknown` is never styled red is retained and passing, as is the full pre-existing dashboard suite.
+- **Trust boundary**: `WEB_ORIGIN` receives no Access-Control-* header on `/internal/me` — asserted for both preflight and simple requests; the dashboard origin keeps credentialed access to `/internal`; the dashboard origin gets nothing on `/public/leads`; and the lead endpoint's allowed preflight carries **no** allow-credentials header. The pre-existing dashboard CORS test also passes against the new implementation.
+- **Redis-unavailable**: a lead POST with Redis down returns the generic 500 envelope, stores nothing, and neither the response nor captured logs contain the submitted email, domain, or phone.
+- **Per-IP behavior retained**: 3 allowed → 429, other IPs unaffected.
+- **Localization**: the badge test pins the exact uz/ru values and asserts they differ from English; the completeness walk covers the new keys automatically.
+- **Local-part preservation**: the lead-write test now submits mixed case and asserts the stored email keeps the local part exactly while the domain lowers.
 
 ## Verification results
 
-dashboard ✓ **23** (+3) · `pnpm -r build` ✓ · `pnpm -r test` ✓ **477** (core 173, shared 43, db 52, api 136, worker 50, dashboard 23) · `pnpm lint` ✓ · `pnpm typecheck` ✓ · `pnpm format:check` ✓ · `git diff --check` clean. Working tree holds only the two correction files plus the relay records — uncommitted by instruction.
+`pnpm db:test:prepare` ✓ · `pnpm web:lint-copy` ✓ clean · web ✓ **14** (+1) · api ✓ **145** (+3) · `pnpm -r build` ✓ (prebuild gate observed) · `pnpm -r test` ✓ **500** (core 173, shared 43, db 52, api 145, worker 50, dashboard 23, web 14) · `pnpm lint` ✓ · `pnpm typecheck` ✓ · `pnpm format:check` ✓ · `git diff --check` clean. **Lighthouse remains `NOT_RUN`** — no audit harness or local browser binary in this environment; the ≥95 target is not claimed.
 
 ## Risks or decisions requiring PM review
 
-- Retry intentionally replays the CAPTURED submission rather than the current input-field contents; a user who wants to check the newly typed value presses Check as usual. This reading follows the correction's "the same currently entered email or phone check" as the check that was entered when the failure happened.
+- `@fastify/cors` was removed in favor of the explicit scoped implementation — a dependency reduction made necessary by the boot deadlock, flagged since dependency changes deserve PM visibility.
 
 ## Known limitations / blockers
 
-None blocking. Prior open notes unchanged.
+Lighthouse `NOT_RUN` as recorded. Prior open notes unchanged.

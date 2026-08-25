@@ -3,7 +3,9 @@ import Fastify, { type FastifyInstance } from 'fastify'
 import type { FastifyBaseLogger } from 'fastify'
 import type { Redis } from 'ioredis'
 import type { DatabaseClient } from '@tozalist/db'
+import { addScopedCors } from './cors.js'
 import { BalanceCache } from './balance-cache.js'
+import { publicLeadRoutes } from './routes/public-leads.js'
 import { openapiPlugin } from './openapi/plugin.js'
 import { healthOperation } from './openapi/operations.js'
 import { foundationPlugin } from './plugins/foundation.js'
@@ -44,6 +46,9 @@ export type AppDeps = {
     cookieSecure: boolean
     clock?: () => number
   }
+  /** Public marketing-site origin; providing it registers /public/leads. */
+  webOrigin?: string
+  publicLeads?: { limit?: number; windowMs?: number; keyPrefix?: string }
   /** Process-level SMTP switch (SMTP_ENABLED). Defaults to false. */
   smtpEnabled?: boolean
   /** Test-only tuning knobs; production uses the defaults. */
@@ -136,6 +141,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       const batchQueue = options.deps.batchQueue
       const webhookResolver = options.deps.webhookResolver
       const internalAuth = options.deps.internalAuth
+      const webOrigin = options.deps.webOrigin
+      const publicLeads = options.deps.publicLeads
       void app.register(async (routes) => {
         await routes.register(emailCheckRoutes, {
           db,
@@ -153,26 +160,52 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
         if (storage !== undefined && batchQueue !== undefined) {
           await routes.register(batchRoutes, { db, storage, batchQueue })
         }
+        if (webOrigin !== undefined) {
+          // TRUST BOUNDARY: the public site's CORS scope covers ONLY the lead
+          // endpoint, without credentials. The web origin must never receive
+          // CORS headers - credentialed or not - on any dashboard route.
+          await routes.register(async (publicScope) => {
+            addScopedCors(publicScope, {
+              origin: webOrigin,
+              credentials: false,
+              methods: ['POST', 'OPTIONS'],
+              headers: ['Content-Type'],
+              preflightPaths: ['/public/leads'],
+            })
+            await publicScope.register(publicLeadRoutes, { db, redis, ...(publicLeads ?? {}) })
+          })
+        }
         if (internalAuth !== undefined) {
           const session = {
             sessionSecret: internalAuth.sessionSecret,
             cookieSecure: internalAuth.cookieSecure,
           }
-          await routes.register(internalRoutes, {
-            db,
-            session,
-            dashboardOrigin: internalAuth.dashboardOrigin,
-            ...(internalAuth.clock !== undefined ? { clock: internalAuth.clock } : {}),
-          })
-          await routes.register(internalProductRoutes, {
-            db,
-            session,
-            engine,
-            smtpQueue,
-            balanceCache,
-            smtpEnabled,
-            ...(storage !== undefined ? { storage } : {}),
-            ...(batchQueue !== undefined ? { batchQueue } : {}),
+          // TRUST BOUNDARY: credentialed CORS exists only inside this scope,
+          // and only for the dashboard origin.
+          await routes.register(async (internalScope) => {
+            addScopedCors(internalScope, {
+              origin: internalAuth.dashboardOrigin,
+              credentials: true,
+              methods: ['GET', 'POST', 'OPTIONS'],
+              headers: ['Content-Type', 'X-CSRF-Token'],
+              preflightPaths: ['/internal/*'],
+            })
+            await internalScope.register(internalRoutes, {
+              db,
+              session,
+              dashboardOrigin: internalAuth.dashboardOrigin,
+              ...(internalAuth.clock !== undefined ? { clock: internalAuth.clock } : {}),
+            })
+            await internalScope.register(internalProductRoutes, {
+              db,
+              session,
+              engine,
+              smtpQueue,
+              balanceCache,
+              smtpEnabled,
+              ...(storage !== undefined ? { storage } : {}),
+              ...(batchQueue !== undefined ? { batchQueue } : {}),
+            })
           })
         }
       })
