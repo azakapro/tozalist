@@ -25,6 +25,14 @@ export const webhookDeliveries = pgTable(
       .default(sql`'{}'::jsonb`),
     status: webhookDeliveryStatusEnum('status').notNull().default('pending'),
     attempts: integer('attempts').notNull().default(0),
+    /**
+     * One entry per attempt: {attempt, at, status_code?, error?}. Codes and
+     * fixed error categories only - never response bodies or foreign text.
+     */
+    attemptLog: jsonb('attempt_log')
+      .$type<Array<Record<string, unknown>>>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     lastError: text('last_error'),
     nextRetryAt: timestamp('next_retry_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

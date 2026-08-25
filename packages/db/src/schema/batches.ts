@@ -1,4 +1,5 @@
-import { index, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import { index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import { batchStatusEnum } from './enums.js'
 import { organizations } from './organizations.js'
 
@@ -23,6 +24,15 @@ export const batches = pgTable(
     totalRows: integer('total_rows').notNull().default(0),
     processedRows: integer('processed_rows').notNull().default(0),
     error: text('error'),
+    /**
+     * Operational counters and CSV layout (shared BatchStats shape): detected
+     * email column, header flag, malformed/charged/cached/duplicate counts and
+     * the verdict distribution. Never contains addresses.
+     */
+    stats: jsonb('stats')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     inputObjectKey: text('input_object_key').notNull(),
     resultObjectKey: text('result_object_key'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

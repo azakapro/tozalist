@@ -1,4 +1,8 @@
 import { existsSync, readdirSync } from 'node:fs'
+import { drizzle } from 'drizzle-orm/postgres-js'
+import { migrate } from 'drizzle-orm/postgres-js/migrator'
+import postgres from 'postgres'
+import { MIGRATIONS_DIR } from './paths.js'
 
 /**
  * Lists the generated SQL migration files, sorted the way Drizzle applies them.
@@ -24,4 +28,17 @@ export function listMigrationFiles(directory: string): string[] {
  */
 export function hasMigrations(directory: string): boolean {
   return listMigrationFiles(directory).length > 0
+}
+
+/**
+ * Applies every committed migration to the database at `url`. Used by other
+ * packages' test setups so they never need their own drizzle dependency.
+ */
+export async function applyMigrations(url: string): Promise<void> {
+  const sql = postgres(url, { max: 1, onnotice: () => {} })
+  try {
+    await migrate(drizzle(sql), { migrationsFolder: MIGRATIONS_DIR })
+  } finally {
+    await sql.end()
+  }
 }

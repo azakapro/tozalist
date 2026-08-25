@@ -21,14 +21,41 @@ export type GeneratedApiKey = {
   readonly keyPrefix: string
 }
 
+const BASE62_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+/** Random part of a key: 32 base62 characters (~190 bits of entropy). */
+export const API_KEY_RANDOM_LENGTH = 32
+
+/** Matches a well-formed TozaList API key exactly. */
+export const API_KEY_PATTERN = /^tzl_live_[0-9A-Za-z]{32}$/
+
 /**
- * Mints an API key.
+ * Unbiased base62 string from the CSPRNG.
  *
- * 32 random bytes of entropy, base64url-encoded. Only the SHA-256 hash and the
- * prefix are ever persisted, so a database leak does not hand out usable keys.
+ * Rejection sampling: 62 * 4 = 248, so bytes 248..255 are rejected instead of
+ * being folded back in by a modulo, which would bias the first 8 characters of
+ * the alphabet. Math.random never appears here - it is not a CSPRNG.
+ */
+function randomBase62(length: number): string {
+  const limit = 62 * 4 // largest multiple of 62 that fits a byte
+  let out = ''
+  while (out.length < length) {
+    for (const byte of randomBytes(length)) {
+      if (byte < limit) {
+        out += BASE62_ALPHABET[byte % 62]
+        if (out.length === length) break
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * Mints an API key: `tzl_live_` + 32 unbiased base62 characters. Only the
+ * SHA-256 hash and the display prefix are ever persisted, so a database leak
+ * does not hand out usable keys.
  */
 export function generateApiKey(): GeneratedApiKey {
-  const plaintext = API_KEY_NAMESPACE + randomBytes(32).toString('base64url')
+  const plaintext = API_KEY_NAMESPACE + randomBase62(API_KEY_RANDOM_LENGTH)
 
   return {
     plaintext,

@@ -1,0 +1,24 @@
+# LOCAL DEVELOPMENT ONLY - never deploy with this file.
+#
+# The base docker-compose.yml keeps the engine internal: no host ports, which
+# is the production trust boundary. This override maps the engine to loopback
+# so API and worker processes running directly on the developer's machine can
+# reach it during development:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
+# and in .env (host-run processes only):
+#
+#   ENGINE_URL=http://127.0.0.1:8080
+#
+# Production (and anything running inside the Compose network) must keep the
+# internal hostname:
+#
+#   ENGINE_URL=http://engine:8080
+#
+# The 127.0.0.1 bind means the engine is reachable only from this machine,
+# never from the local network.
+services:
+  engine:
+    ports:
+      - '127.0.0.1:8080:8080'
