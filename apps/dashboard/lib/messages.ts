@@ -76,6 +76,20 @@ const en = {
   'settings.retention.30':
     '30 days — the default; one month to download results and review history.',
   'settings.retention.90': '90 days — longest retention; keep results for a quarter.',
+  'settings.export.title': 'Export my data',
+  'settings.export.explain':
+    'Download everything we store for your organization: check results, batch metadata, the credit ledger, and audit events, as CSV files in one ZIP.',
+  'settings.export.button': 'Generate export',
+  'settings.export.working': 'Generating\u2026',
+  'settings.export.download': 'Download export (ZIP)',
+  'settings.export.expires': 'Link expires in',
+  'settings.export.expired': 'The link has expired. Generate a new export.',
+  'settings.wipe.title': 'Delete all check data',
+  'settings.wipe.explain':
+    'Immediately and permanently deletes every stored check result, batch, and uploaded file. Credits and the ledger are not affected. This cannot be undone.',
+  'settings.wipe.confirmLabel': 'Type DELETE to confirm',
+  'settings.wipe.button': 'Delete all check data',
+  'settings.wipe.done': 'All check data was deleted (email / phone / batches):',
   'settings.danger.title': 'Danger zone',
   'settings.danger.explain':
     'Deleting the organization disables all access immediately and schedules permanent data deletion. This cannot be undone.',

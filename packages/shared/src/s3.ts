@@ -4,6 +4,7 @@ import {
   GetObjectCommand,
   HeadBucketCommand,
   CreateBucketCommand,
+  ListObjectsV2Command,
   S3Client,
 } from '@aws-sdk/client-s3'
 import { Upload } from '@aws-sdk/lib-storage'
@@ -48,17 +49,69 @@ export function batchInputKey(orgId: string, batchId: string): string {
   return `org/${orgId}/batches/${batchId}/input.csv`
 }
 
+/** Everything an organisation owns lives under this prefix. */
+export function orgObjectPrefix(orgId: string): string {
+  return `org/${orgId}/`
+}
+
+/**
+ * A data-export ZIP. The creation time is embedded in the key so the retention
+ * sweep can expire exports without a database record: the signed link lives 24
+ * hours, the object itself is removed by the next sweep after that.
+ */
+export function exportObjectKey(orgId: string, createdAtMs: number, id: string): string {
+  return `org/${orgId}/exports/${createdAtMs}-${id}.zip`
+}
+
+/** The embedded creation time of an export key, or null for other keys. */
+export function exportKeyCreatedAtMs(key: string): number | null {
+  const match = /^org\/[0-9a-f-]+\/exports\/(\d+)-[0-9a-f-]+\.zip$/.exec(key)
+  if (match === null) return null
+  const ms = Number(match[1])
+  return Number.isSafeInteger(ms) ? ms : null
+}
+
 export function batchResultKey(orgId: string, batchId: string): string {
   return `org/${orgId}/batches/${batchId}/result.csv`
 }
+
+/**
+ * The one error message any storage deletion failure surfaces. Fixed text by
+ * design: it can never carry an object key, endpoint, credential, or customer
+ * value, no matter what the S3 SDK put in the underlying response.
+ */
+export const STORAGE_DELETE_FAILED = 'object storage deletion incomplete'
+
+/**
+ * Fails closed on a partial DeleteObjects response. S3 (and MinIO) can return
+ * 200 with per-key errors in the body; treating that as success is how
+ * customer objects get orphaned. Exported so tests can prove the behavior
+ * with a fabricated partial response.
+ */
+export function ensureDeleteSucceeded(
+  errors: Array<{ Key?: string | undefined }> | undefined,
+): void {
+  if (errors !== undefined && errors.length > 0) {
+    throw new Error(STORAGE_DELETE_FAILED)
+  }
+}
+
+/** DeleteObjects accepts at most 1000 keys per request. */
+const DELETE_BATCH_LIMIT = 1000
 
 export type ObjectStorage = {
   /** Streams `body` to `key` without buffering the whole object. */
   uploadStream(key: string, body: Readable, contentType?: string): Promise<void>
   /** Opens a streaming read of `key`. */
   getStream(key: string): Promise<Readable>
-  /** Deletes the given keys; missing keys are not an error. */
+  /**
+   * Deletes the given keys; missing keys are not an error, but a per-key
+   * failure in the response is: the call throws STORAGE_DELETE_FAILED and the
+   * caller must treat the whole deletion as retryable.
+   */
   deleteObjects(keys: string[]): Promise<void>
+  /** Lists every key under `prefix`, following pagination to the end. */
+  listKeys(prefix: string): Promise<string[]>
   /** A presigned GET URL for `key`, valid `expiresInSeconds`. */
   presignDownload(key: string, expiresInSeconds: number): Promise<string>
   /** Creates the bucket when absent (local development and tests). */
@@ -95,13 +148,37 @@ export function createObjectStorage(config: S3Config): ObjectStorage {
     },
 
     async deleteObjects(keys) {
-      if (keys.length === 0) return
-      await client.send(
-        new DeleteObjectsCommand({
-          Bucket: bucket,
-          Delete: { Objects: keys.map((key) => ({ Key: key })), Quiet: true },
-        }),
-      )
+      for (let start = 0; start < keys.length; start += DELETE_BATCH_LIMIT) {
+        const chunk = keys.slice(start, start + DELETE_BATCH_LIMIT)
+        // Quiet mode still reports per-key ERRORS in the body; only successes
+        // are suppressed. Missing keys are treated as deleted, not as errors.
+        const result = await client.send(
+          new DeleteObjectsCommand({
+            Bucket: bucket,
+            Delete: { Objects: chunk.map((key) => ({ Key: key })), Quiet: true },
+          }),
+        )
+        ensureDeleteSucceeded(result.Errors)
+      }
+    },
+
+    async listKeys(prefix) {
+      const keys: string[] = []
+      let continuationToken: string | undefined
+      do {
+        const result = await client.send(
+          new ListObjectsV2Command({
+            Bucket: bucket,
+            Prefix: prefix,
+            ...(continuationToken !== undefined ? { ContinuationToken: continuationToken } : {}),
+          }),
+        )
+        for (const object of result.Contents ?? []) {
+          if (object.Key !== undefined) keys.push(object.Key)
+        }
+        continuationToken = result.IsTruncated === true ? result.NextContinuationToken : undefined
+      } while (continuationToken !== undefined)
+      return keys
     },
 
     async presignDownload(key, expiresInSeconds) {

@@ -127,6 +127,22 @@ export async function connectTestStorage(): Promise<ObjectStorage> {
   return storage
 }
 
+/**
+ * Storage on a DEDICATED test bucket. The lifecycle sweep does bucket-wide
+ * listing and deleting, so its tests must never share a bucket with anything
+ * else - the same isolation rule the test database follows.
+ */
+export async function connectIsolatedTestStorage(): Promise<ObjectStorage> {
+  const bucket = process.env.S3_BUCKET_TEST ?? 'tozalist-test'
+  const base = readS3Config(process.env)
+  if (bucket === base.bucket) {
+    throw new Error('S3_BUCKET_TEST must differ from S3_BUCKET')
+  }
+  const storage = createObjectStorage({ ...base, bucket })
+  await storage.ensureBucket()
+  return storage
+}
+
 /** Reads a whole object into a string (test-only convenience). */
 export async function readObject(storage: ObjectStorage, key: string): Promise<string> {
   const stream = await storage.getStream(key)

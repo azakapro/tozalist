@@ -18,6 +18,9 @@ export type SmtpProbeJobData = {
 /** BullMQ queue name for batch CSV processing jobs. */
 export const BATCH_PROCESS_QUEUE = 'batch-process'
 
+/** Hourly retention sweep (repeatable job); payload-free. */
+export const LIFECYCLE_PURGE_QUEUE = 'lifecycle-purge'
+
 /** Batch job payload: only the batch row's UUID crosses Redis. */
 export type BatchProcessJobData = {
   batchId: string

@@ -195,6 +195,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
               session,
               dashboardOrigin: internalAuth.dashboardOrigin,
               ...(internalAuth.clock !== undefined ? { clock: internalAuth.clock } : {}),
+              ...(storage !== undefined ? { storage } : {}),
             })
             await internalScope.register(internalProductRoutes, {
               db,

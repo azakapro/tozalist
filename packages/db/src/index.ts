@@ -111,4 +111,34 @@ export {
   type OrgSettings,
   type SignupResult,
 } from './accounts.js'
+export {
+  deleteBatchesByIds,
+  deleteRetiredOrganizations,
+  deleteEmailCheckForOrg,
+  deletePhoneCheckForOrg,
+  hardDeleteOrganizationData,
+  LEDGER_RETENTION_YEARS,
+  ledgerRetentionCutoff,
+  listExpiredBatches,
+  listOrganizationsDueForPurge,
+  ORG_PURGE_GRACE_DAYS,
+  PURGED_ORG_NAME,
+  purgeExpiredChecks,
+  purgeExpiredLeads,
+  purgeExpiredLedgerEntries,
+  wipeCheckDataForOrg,
+  type BatchPurgeTarget,
+  type CheckDataWipeResult,
+  type ExpiredCheckCounts,
+  type OrgPurgeResult,
+} from './lifecycle.js'
+export {
+  EXPORT_PAGE_SIZE,
+  pageAuditEventsForExport,
+  pageBatchesForExport,
+  pageEmailChecksForExport,
+  pageLedgerForExport,
+  pagePhoneChecksForExport,
+  type ExportPager,
+} from './export.js'
 export * from './schema/index.js'

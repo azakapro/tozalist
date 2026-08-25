@@ -2,101 +2,98 @@
 
 ## Review
 
-- Step ID: `6.2` correction — Public docs and legal pages.
-- Baseline checked: `YES — all Phase 6 work is local on feat/phase-6-public-site, on top of synchronized Step 6.1 commit 5370fea.`
-- CTO report and actual implementation reviewed: `YES — generated OpenAPI reference, glossary, MDX pages, draft-banner flag, contact lead source, copy gate, sitemap, formatter handling, and licenses.`
-- Scope checked: `YES — all changes belong to Phase 6. No Phase 7 work, payments, deployment, real-data processing, or product-accounting change is present.`
-- Privacy/security/legal-status checked: `YES — the legal pages retain the single DRAFT banner; the privacy table now truthfully distinguishes a 180-day expiry marker from the not-yet-live automatic purge. This is not legal approval. Any manual deletion commitment remains an owner operational responsibility until Phase 7 implements purge automation.`
-- Acceptance evidence checked: `YES — the glossary is generated from core with an exact drift test; every legal page uses the single DRAFT flag; prohibited use includes every required category; the contact form writes only the enum-approved landing_contact source.`
-- Verification independently rerun: `YES — database preparation, copy lint, web 24, API 146, workspace build (including a fresh OpenAPI export and 39 static pages), formatter after the build, lint, typecheck, core 173, shared 43, db 52, dashboard 23, worker 50, and diff check all pass: 511 tests total.`
-- Lighthouse: `NOT_RUN — the ≥95 performance/accessibility target remains a Phase 9 pre-launch audit gate and is not claimed.`
-- Dependency compliance checked: `YES — @next/mdx 14.2.35, @mdx-js/loader 3.1.1, @mdx-js/react 3.1.1, and @types/mdx 2.0.14 are MIT in their installed package metadata, with matching root THIRD_PARTY_LICENSES records.`
+- Step ID: `7.1` — Retention, deletion, and export (including the lifecycle-durability and accounting-completion correction).
+- Baseline checked: `YES — feat/phase-7-lifecycle-billing starts at merged origin/main commit 9589580.`
+- CTO report, actual diff, recovery paths, ledger migration, export serialization, route authorization, and affected tests reviewed: `YES`.
+- Scope checked: `YES — changes remain within Step 7.1. No payment-provider, production deployment, legal/privacy-copy, or GitHub write has occurred.`
+- Storage durability: `APPROVED — DeleteObjects now fails closed on per-key errors; expired batch and org cleanup keep their database state retryable until object removal succeeds; organisation prefixes are re-listed before purged_at is written; the account wipe locks the active organisation while enumerating, deletes objects before rows, and rolls back database work on a storage failure.`
+- Accounting and retention: `APPROVED — migration 0006 retains normal append-only UPDATE/DELETE/TRUNCATE protection, permits only transaction-local, database-age-gated deletion after three years, and removes anonymized organisation rows only after their retained ledger is empty. The stored 180-day lead expiry remains the accepted canonical implementation.`
+- Privacy and security: `APPROVED — export and wipe retain admin + MFA + CSRF checks; signed download URLs are neither logged nor audited; storage failures surface only fixed/generic responses; customer-controlled self-service-export cells are neutralized before CSV quoting. No client-secret, unsafe HTML, or unsafe navigation path was introduced by this step.`
+- Acceptance evidence: `APPROVED — CTO reports db preparation plus real test-MinIO fault injection; PM independently reran build, the full workspace test suite (541 passing), lint, typecheck, formatting after build, and diff check. PM did not rerun db:test:prepare because this review environment has no DATABASE_URL_TEST and must not substitute a development database for destructive setup.`
+- Carry-forward note: `The pre-existing Step 4.1 batch-result CSV is still a separate formula-injection hardening candidate. It was not altered in this scoped correction; the new self-service data export is protected. Track the older result-download path in the Phase 8 security pass before production launch.`
 
 ## Decision
 
 - Decision: `APPROVED`
-- Rationale: `Step 6.2 and its focused correction satisfy the roadmap acceptance criteria and all required release gates now pass after a clean build. Phase 6 is ready for its single GitHub review handoff. The legal pages remain plainly marked as engineering drafts, not approved legal terms.`
+- Rationale: `The focused correction closes the previously blocking object-storage failure, accounting-retention, batch-draining, and spreadsheet-formula risks with testable retry behavior. The remaining batch-result CSV note is pre-existing and outside the reviewed self-service-export path; it is recorded as a Phase 8 hardening gate, not a reason to hold Step 7.1.`
 
-## Authorized Git sync and Phase 6 draft PR
+## Exact next action — Step 7.1 Git sync only
 
-On `feat/phase-6-public-site`, make one atomic commit containing only the reviewed Step 6.2 work, its correction, and relay records; then push only that branch to `origin`; then create one **draft** pull request into `main`. Do not merge it.
+Claude Code must remain on `feat/phase-7-lifecycle-billing` and perform no product work.
 
-Included paths:
+1. Reconfirm that the working tree contains exactly the reviewed Step 7.1 files and relay records listed below; stop and report if anything else is present.
+2. Create one atomic commit with this exact message:
 
-- `.prettierignore`
-- `THIRD_PARTY_LICENSES/mdx-js-loader-MIT.txt`
-- `THIRD_PARTY_LICENSES/mdx-js-react-MIT.txt`
-- `THIRD_PARTY_LICENSES/next-mdx-MIT.txt`
-- `THIRD_PARTY_LICENSES/types-mdx-MIT.txt`
-- `apps/api/package.json`
-- `apps/api/scripts/export-openapi.ts`
-- `apps/api/src/public-leads.integration.test.ts`
-- `apps/api/src/routes/public-leads.ts`
-- `apps/web/.gitignore`
-- `apps/web/app/[locale]/contact/page.tsx`
-- `apps/web/app/[locale]/docs/glossary/page.tsx`
-- `apps/web/app/[locale]/docs/limitations/page.tsx`
-- `apps/web/app/[locale]/docs/page.tsx`
-- `apps/web/app/[locale]/docs/quickstart/page.tsx`
-- `apps/web/app/[locale]/docs/reference/page.tsx`
-- `apps/web/app/[locale]/docs/webhooks/page.tsx`
-- `apps/web/app/[locale]/privacy/page.tsx`
-- `apps/web/app/[locale]/prohibited-use/page.tsx`
-- `apps/web/app/[locale]/terms/page.tsx`
-- `apps/web/app/sitemap.ts`
-- `apps/web/content/limitations.mdx`
-- `apps/web/content/privacy.mdx`
-- `apps/web/content/prohibited-use.mdx`
-- `apps/web/content/quickstart.mdx`
-- `apps/web/content/terms.mdx`
-- `apps/web/content/webhooks.mdx`
-- `apps/web/lib/draft-banner.tsx`
-- `apps/web/lib/glossary.ts`
-- `apps/web/lib/messages.ts`
-- `apps/web/lib/openapi.ts`
-- `apps/web/lib/page-shell.tsx`
-- `apps/web/lib/pilot-form.tsx`
-- `apps/web/lib/site-config.ts`
-- `apps/web/mdx-components.tsx`
-- `apps/web/mdx.d.ts`
-- `apps/web/next.config.mjs`
-- `apps/web/package.json`
-- `apps/web/scripts/lint-copy.mjs`
-- `apps/web/tests/draft-banner.test.tsx`
-- `apps/web/tests/glossary.test.ts`
-- `apps/web/tests/openapi.test.ts`
-- `apps/web/tests/pilot-form.test.tsx`
-- `docs/agent-loop/CTO-REPORT.md`
-- `docs/agent-loop/PM-DECISION.md`
-- `docs/agent-loop/STATE.md`
-- `pnpm-lock.yaml`
+   ```text
+   lifecycle: add retention, export, and deletion controls
+   ```
 
-Use commit message: `web: add public docs and draft legal pages`.
+3. Push only `feat/phase-7-lifecycle-billing` to `origin`. Do not push or modify `main`.
+4. Do not create or update a pull request; the single Phase 7 draft PR is due only after Step 7.2 is approved and synchronized.
+5. Update `CTO-REPORT.md` with the commit hash and remote branch, set `STATE.md` to `awaiting_pm_review` for PM sync verification, and stop. Do not begin Step 7.2.
 
-Create a draft PR with:
+Reviewed commit scope:
 
-- Title: `Phase 6: public site, docs, and draft policies`
-- Base: `main`
-- Body: `Delivers Phase 6 in two reviewed commits: localized pilot landing and lead intake; public docs with build-time OpenAPI reference, generated reason-code glossary, and webhook guide; plus draft privacy, terms, and prohibited-use pages. Verification: 511 tests; 39 static public pages; build, copy lint, formatter-after-build, lint, typecheck, and diff check pass. Known pre-launch gates: Lighthouse ≥95 remains unmeasured; legal pages are DRAFT pending counsel; lead expiry is marked at 180 days and requires manual handling until the Phase 7 purge job.`
-
-After the commit, push, and draft-PR creation, record the commit hash, remote branch, and PR URL in `CTO-REPORT.md`; set `STATE.md` to `awaiting_pm_review` with Step `6.2`; and stop. Do not edit product code, begin Step 7.1, merge, deploy, enable production SMTP, process real customer data, add payments, or remove/approve the DRAFT legal banner.
+```text
+.env.example
+THIRD_PARTY_LICENSES/types-yauzl-MIT.txt
+THIRD_PARTY_LICENSES/types-yazl-MIT.txt
+THIRD_PARTY_LICENSES/yauzl-MIT.txt
+THIRD_PARTY_LICENSES/yazl-MIT.txt
+apps/api/package.json
+apps/api/scripts/export-openapi.ts
+apps/api/src/app.ts
+apps/api/src/internal/data-export.ts
+apps/api/src/internal/routes.ts
+apps/api/src/lifecycle.integration.test.ts
+apps/api/src/openapi/operations.ts
+apps/api/src/routes/email-check.ts
+apps/api/src/routes/phone-check.ts
+apps/dashboard/app/settings/page.tsx
+apps/dashboard/lib/data-controls.tsx
+apps/dashboard/lib/messages.ts
+apps/dashboard/tests/data-controls.test.tsx
+apps/worker/src/lifecycle/lifecycle.integration.test.ts
+apps/worker/src/lifecycle/processor.ts
+apps/worker/src/lifecycle/worker.ts
+apps/worker/src/main.ts
+apps/worker/src/test/support.ts
+docs/agent-loop/CTO-REPORT.md
+docs/agent-loop/PM-DECISION.md
+docs/agent-loop/STATE.md
+packages/db/drizzle/0005_gigantic_the_hand.sql
+packages/db/drizzle/0006_ledger_retention_purge.sql
+packages/db/drizzle/meta/0005_snapshot.json
+packages/db/drizzle/meta/0006_snapshot.json
+packages/db/drizzle/meta/_journal.json
+packages/db/src/export.ts
+packages/db/src/index.ts
+packages/db/src/lifecycle.integration.test.ts
+packages/db/src/lifecycle.ts
+packages/db/src/schema/organizations.ts
+packages/shared/src/checks.ts
+packages/shared/src/index.ts
+packages/shared/src/s3.test.ts
+packages/shared/src/s3.ts
+pnpm-lock.yaml
+```
 
 ## Explicit exceptional permissions
 
-- [x] Commit — scope: `one atomic Step 6.2 commit containing only the listed paths on feat/phase-6-public-site; message exactly “web: add public docs and draft legal pages”.`
-- [x] Push — scope: `only feat/phase-6-public-site to origin; never main.`
-- [x] Create draft pull request — scope: `one new draft PR from feat/phase-6-public-site into main; title and body exactly as specified above.`
-- [ ] Merge — scope: `N/A — product owner merges manually in GitHub.`
-- [ ] Deploy — scope: `N/A`
-- [ ] Delete material data — scope: `N/A`
-- [ ] Enable production SMTP — scope: `N/A`
-- [ ] Process real customer data — scope: `N/A`
-- [ ] Add a payment provider — scope: `N/A`
-- [ ] Change legal/privacy policy — scope: `N/A — pages remain DRAFT pending counsel.`
+- [x] Commit — scope: `one atomic Step 7.1 commit containing only the reviewed paths above, on feat/phase-7-lifecycle-billing, with the exact message stated above.`
+- [x] Push — scope: `only feat/phase-7-lifecycle-billing to origin after that commit.`
+- [ ] Create/update draft pull request — scope: `N/A — deferred until Step 7.2 completes and is approved.`
+- [ ] Merge — scope: `N/A — product owner only.`
+- [ ] Deploy — scope: `N/A`.
+- [ ] Delete material data — scope: `N/A — no new destructive test or production action is authorized by this sync handoff.`
+- [ ] Enable production SMTP — scope: `N/A`.
+- [ ] Process real customer data — scope: `N/A`.
+- [ ] Add a payment provider — scope: `N/A`.
+- [ ] Change legal/privacy policy — scope: `N/A`.
 
 ## State transition
 
 - State status: `ready_for_cto`
-- Current step after decision: `6.2` (approved Git-sync and Phase 6 draft-PR handoff only)
+- Current step after decision: `7.1` (Git sync handoff only)
 - Owner: `Claude Code`
-- Next action: `Commit, push, and create only the authorized Phase 6 draft PR; report the result, set awaiting_pm_review, and stop.`
+- Next action: `Perform only the explicitly authorized commit and push, report the hash/branch, set awaiting_pm_review, and stop.`

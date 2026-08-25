@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { api, ApiError } from '../../lib/api'
+import { DataControls } from '../../lib/data-controls'
 import { t } from '../../lib/messages'
 import { Shell } from '../../lib/shell'
 
@@ -83,6 +84,8 @@ export default function SettingsPage() {
         </button>
         {saved && <span className="ml-2 text-sm text-green-700">{t('settings.saved')}</span>}
       </form>
+
+      <DataControls />
 
       <section className="mt-8 rounded-lg border border-red-200 bg-red-50 p-4">
         <h2 className="font-medium text-red-800">{t('settings.danger.title')}</h2>

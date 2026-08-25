@@ -14,6 +14,14 @@ export const organizations = pgTable(
     name: text('name').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    /**
+     * Set once the retention sweep has hard-deleted this organisation's data.
+     * The row itself must outlive the purge: credit_ledger references it with
+     * ON DELETE RESTRICT (three-year accounting retention), so the sweep
+     * anonymizes the row - name replaced, children deleted - and marks it here
+     * instead of deleting it. A set purged_at also makes the sweep idempotent.
+     */
+    purgedAt: timestamp('purged_at', { withTimezone: true }),
     retentionDays: integer('retention_days').notNull().default(30),
     smtpEnabled: boolean('smtp_enabled').notNull().default(false),
   },
