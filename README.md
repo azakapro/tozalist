@@ -9,9 +9,10 @@ enriching, or looking up people who never opted in. This repository holds the
 whole product: two web surfaces, an HTTP API, a background worker, an internal
 Go validation engine, and the shared TypeScript packages behind them.
 
-> **Status: step 0.2 — foundation and database schema.** The schema and its
-> migrations exist, but nothing writes to them yet: no validation logic, no
-> authentication, no billing, no jobs, and no product endpoints.
+> **Status: step 1.1 — foundation, database schema, and the engine sidecar.**
+> The Go engine now verifies emails (syntax, MX, disposable/role/free lists,
+> SMTP probing off by default), but nothing calls it yet: no API integration,
+> no authentication, no billing, no jobs, and no product endpoints.
 
 ## Folder tree
 
@@ -27,7 +28,7 @@ tozalist/
 │   ├── db/           @tozalist/db         Drizzle schema, migrations, seed
 │   └── shared/       @tozalist/shared     Shared types and constants
 ├── services/
-│   └── engine/       Go module — internal-only validation engine
+│   └── engine/       Go module — internal-only email-validation sidecar
 ├── docs/
 │   ├── architecture.md
 │   └── data-model.md
@@ -95,6 +96,24 @@ The Go engine is managed through Docker Compose only:
 docker compose up -d engine && docker compose logs engine
 ```
 
+The engine has no host port in the base Compose file — that is the production
+trust boundary. To reach it from API/worker processes running on your machine
+during local development, add the dev override (loopback-only mapping) and
+point `ENGINE_URL` at it:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+```
+
+```
+# .env for host-run local development
+ENGINE_URL=http://127.0.0.1:8080
+```
+
+Production configuration keeps the internal hostname: `ENGINE_URL=http://engine:8080`.
+`docker-compose.dev.yml` is for local development only and must never be used
+in a deployment.
+
 Health check once the API is running:
 
 ```bash
@@ -125,6 +144,12 @@ pnpm --filter @tozalist/db test
 
 See [docs/data-model.md](docs/data-model.md) for the schema, the retention rules,
 and why the credit ledger is append-only.
+
+## Webhooks
+
+Batch lifecycle notifications with signed payloads: see
+[docs/webhooks.md](docs/webhooks.md) for the delivery contract and signature
+verification samples (Node.js and Python).
 
 ## Architecture
 

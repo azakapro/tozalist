@@ -65,9 +65,11 @@ services:
     expose:
       - '8080'
     environment:
+      ENGINE_PORT: ${ENGINE_PORT:-8080}
       SMTP_ENABLED: ${SMTP_ENABLED}
       SMTP_HELO_DOMAIN: ${SMTP_HELO_DOMAIN}
       SMTP_PROBE_FROM: ${SMTP_PROBE_FROM}
+      VERIFY_TIMEOUT_SECONDS: ${VERIFY_TIMEOUT_SECONDS:-15}
 
 volumes:
   postgres_data:

@@ -14,6 +14,7 @@ coverage/
 
 # go
 services/engine/bin/
+services/engine/engine
 
 # environment
 .env

@@ -87,8 +87,10 @@ reached directly by an untrusted caller.
 The schema, its retention rules and the append-only credit ledger are described
 in [data-model.md](data-model.md).
 
-## Not implemented at step 0.2
+## Not implemented at step 1.1
 
-The database schema exists, but nothing writes to it yet. No validation, SMTP
-probing, authentication, billing, queues or jobs, upload handling, webhook
-delivery, or analytics. Those arrive in later steps.
+The engine verifies emails (syntax, MX, disposable/role/free lists, optional
+SMTP probe, off by default), but nothing calls it yet: the API is not wired to
+the engine, and nothing writes to the database. No authentication, billing,
+queues or jobs, upload handling, webhook delivery, phone validation, or
+analytics. Those arrive in later steps.
