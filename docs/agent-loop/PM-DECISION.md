@@ -2,101 +2,89 @@
 
 ## Review
 
-- Step ID: `6.2` correction — Public docs and legal pages.
-- Baseline checked: `YES — all Phase 6 work is local on feat/phase-6-public-site, on top of synchronized Step 6.1 commit 5370fea.`
-- CTO report and actual implementation reviewed: `YES — generated OpenAPI reference, glossary, MDX pages, draft-banner flag, contact lead source, copy gate, sitemap, formatter handling, and licenses.`
-- Scope checked: `YES — all changes belong to Phase 6. No Phase 7 work, payments, deployment, real-data processing, or product-accounting change is present.`
-- Privacy/security/legal-status checked: `YES — the legal pages retain the single DRAFT banner; the privacy table now truthfully distinguishes a 180-day expiry marker from the not-yet-live automatic purge. This is not legal approval. Any manual deletion commitment remains an owner operational responsibility until Phase 7 implements purge automation.`
-- Acceptance evidence checked: `YES — the glossary is generated from core with an exact drift test; every legal page uses the single DRAFT flag; prohibited use includes every required category; the contact form writes only the enum-approved landing_contact source.`
-- Verification independently rerun: `YES — database preparation, copy lint, web 24, API 146, workspace build (including a fresh OpenAPI export and 39 static pages), formatter after the build, lint, typecheck, core 173, shared 43, db 52, dashboard 23, worker 50, and diff check all pass: 511 tests total.`
-- Lighthouse: `NOT_RUN — the ≥95 performance/accessibility target remains a Phase 9 pre-launch audit gate and is not claimed.`
-- Dependency compliance checked: `YES — @next/mdx 14.2.35, @mdx-js/loader 3.1.1, @mdx-js/react 3.1.1, and @types/mdx 2.0.14 are MIT in their installed package metadata, with matching root THIRD_PARTY_LICENSES records.`
+- Step ID: `7.2` — Pilot billing, including the authoritative manual-grant correction.
+- Baseline checked: `YES — all reviewed Step 7.2 work is local on feat/phase-7-lifecycle-billing above the synchronized Step 7.1 commit 17f9055.`
+- Scope checked: `PASS — the implementation remains invoice-and-ledger billing only. There is no Click/Payme/provider SDK, checkout, card processing, payment webhook, merchant credential, production action, or legal/privacy-policy change.`
+- Accounting correction: `PASS — grantCreditsWithAudit now validates a positive safe integer and canonical non-blank note before reference derivation or transaction work; invalid input returns only the fixed invalid_input token. Direct database tests prove negative, zero, fractional, non-finite, oversized, empty, and whitespace-only grants leave zero ledger and audit rows. Trimmed-note replays collide and the stored ledger note is canonical.`
+- Privacy and access control: `PASS — invoice creation is admin + MFA + CSRF gated; statement links are scoped to the authenticated organisation, expire after one hour, and their signed URLs are neither logged nor audited. Bank instructions remain environment-only and are absent from audit and log output. Invoice-request rows hold only organisation, requester, plan, and timestamps and are deleted with the organisation purge.`
+- Retention decision: `ACCEPTED FOR THIS STEP — before the DRAFT privacy policy is finalized, its data map must explicitly cover invoice-request records and their organisation-lifetime retention. This approval does not authorize any legal-copy change.`
+- Plan and statement evidence: `PASS — the three pilot plans are one client-safe core configuration used by both public-web and dashboard rendering; statement boundaries are [start, end), ledger notes are HTML-escaped, statements delete with the organisation prefix, and a test prevents payment-provider dependencies.`
+- Verification independently rerun by PM: `PASS — pnpm -r build; pnpm -r test (569 tests: core 177, shared 48, db 71, api 160, worker 55, dashboard 32, web 26); pnpm lint; pnpm -r typecheck; pnpm format:check after build; and git diff --check.`
+- Database-preparation note: `A bare pnpm db:test:prepare in the PM shell reports DATABASE_URL_TEST is not exported. The full test run did execute all 71 database tests, including the direct billing integration tests, against the isolated test setup; the CTO separately reports migration preparation passed. This local shell-environment gap does not change the reviewed application behavior, but deployment/CI must provide DATABASE_URL_TEST explicitly wherever that standalone preparation script is used.`
 
 ## Decision
 
 - Decision: `APPROVED`
-- Rationale: `Step 6.2 and its focused correction satisfy the roadmap acceptance criteria and all required release gates now pass after a clean build. Phase 6 is ready for its single GitHub review handoff. The legal pages remain plainly marked as engineering drafts, not approved legal terms.`
+- Rationale: `The focused accounting defect is corrected at the authoritative database boundary, the direct regression evidence is meaningful, and Step 7.2 meets its roadmap acceptance criteria. Together with synchronized Step 7.1, Phase 7 is ready for its single draft pull-request handoff.`
 
-## Authorized Git sync and Phase 6 draft PR
+## Explicit Phase 7 Git sync authorization
 
-On `feat/phase-6-public-site`, make one atomic commit containing only the reviewed Step 6.2 work, its correction, and relay records; then push only that branch to `origin`; then create one **draft** pull request into `main`. Do not merge it.
+Claude Code may perform this handoff only. Do not edit product code, begin Step 8.1, merge, deploy, process real data, add a payment provider, or change legal/privacy policy.
 
-Included paths:
+1. On `feat/phase-7-lifecycle-billing`, verify the working tree contains exactly these reviewed Step 7.2 paths before staging:
 
-- `.prettierignore`
-- `THIRD_PARTY_LICENSES/mdx-js-loader-MIT.txt`
-- `THIRD_PARTY_LICENSES/mdx-js-react-MIT.txt`
-- `THIRD_PARTY_LICENSES/next-mdx-MIT.txt`
-- `THIRD_PARTY_LICENSES/types-mdx-MIT.txt`
-- `apps/api/package.json`
-- `apps/api/scripts/export-openapi.ts`
-- `apps/api/src/public-leads.integration.test.ts`
-- `apps/api/src/routes/public-leads.ts`
-- `apps/web/.gitignore`
-- `apps/web/app/[locale]/contact/page.tsx`
-- `apps/web/app/[locale]/docs/glossary/page.tsx`
-- `apps/web/app/[locale]/docs/limitations/page.tsx`
-- `apps/web/app/[locale]/docs/page.tsx`
-- `apps/web/app/[locale]/docs/quickstart/page.tsx`
-- `apps/web/app/[locale]/docs/reference/page.tsx`
-- `apps/web/app/[locale]/docs/webhooks/page.tsx`
-- `apps/web/app/[locale]/privacy/page.tsx`
-- `apps/web/app/[locale]/prohibited-use/page.tsx`
-- `apps/web/app/[locale]/terms/page.tsx`
-- `apps/web/app/sitemap.ts`
-- `apps/web/content/limitations.mdx`
-- `apps/web/content/privacy.mdx`
-- `apps/web/content/prohibited-use.mdx`
-- `apps/web/content/quickstart.mdx`
-- `apps/web/content/terms.mdx`
-- `apps/web/content/webhooks.mdx`
-- `apps/web/lib/draft-banner.tsx`
-- `apps/web/lib/glossary.ts`
-- `apps/web/lib/messages.ts`
-- `apps/web/lib/openapi.ts`
-- `apps/web/lib/page-shell.tsx`
-- `apps/web/lib/pilot-form.tsx`
-- `apps/web/lib/site-config.ts`
-- `apps/web/mdx-components.tsx`
-- `apps/web/mdx.d.ts`
-- `apps/web/next.config.mjs`
-- `apps/web/package.json`
-- `apps/web/scripts/lint-copy.mjs`
-- `apps/web/tests/draft-banner.test.tsx`
-- `apps/web/tests/glossary.test.ts`
-- `apps/web/tests/openapi.test.ts`
-- `apps/web/tests/pilot-form.test.tsx`
-- `docs/agent-loop/CTO-REPORT.md`
-- `docs/agent-loop/PM-DECISION.md`
-- `docs/agent-loop/STATE.md`
-- `pnpm-lock.yaml`
+   - `.env.example`
+   - `TODO-PAYMENTS.md`
+   - `apps/api/package.json`
+   - `apps/api/src/app.ts`
+   - `apps/api/src/billing.integration.test.ts`
+   - `apps/api/src/billing/statement-html.ts`
+   - `apps/api/src/cli/billing-grant.ts`
+   - `apps/api/src/cli/billing-statement.ts`
+   - `apps/api/src/config.ts`
+   - `apps/api/src/internal/billing.ts`
+   - `apps/api/src/no-payment-provider.test.ts`
+   - `apps/dashboard/app/billing/page.tsx`
+   - `apps/dashboard/lib/messages.ts`
+   - `apps/dashboard/lib/shell.tsx`
+   - `apps/dashboard/package.json`
+   - `apps/dashboard/tests/billing.test.tsx`
+   - `apps/web/app/[locale]/page.tsx`
+   - `apps/web/lib/messages.ts`
+   - `apps/web/tests/pricing-plans.test.tsx`
+   - `apps/worker/src/lifecycle/lifecycle.integration.test.ts`
+   - `docs/agent-loop/CTO-REPORT.md`
+   - `docs/agent-loop/PM-DECISION.md`
+   - `docs/agent-loop/STATE.md`
+   - `package.json`
+   - `packages/core/src/index.ts`
+   - `packages/core/src/plans.test.ts`
+   - `packages/core/src/plans.ts`
+   - `packages/db/drizzle/0007_colossal_bushwacker.sql`
+   - `packages/db/drizzle/meta/0007_snapshot.json`
+   - `packages/db/drizzle/meta/_journal.json`
+   - `packages/db/src/billing.integration.test.ts`
+   - `packages/db/src/billing.ts`
+   - `packages/db/src/index.ts`
+   - `packages/db/src/lifecycle.ts`
+   - `packages/db/src/schema/index.ts`
+   - `packages/db/src/schema/invoice-requests.ts`
+   - `packages/shared/src/index.ts`
+   - `packages/shared/src/s3.ts`
+   - `pnpm-lock.yaml`
 
-Use commit message: `web: add public docs and draft legal pages`.
-
-Create a draft PR with:
-
-- Title: `Phase 6: public site, docs, and draft policies`
-- Base: `main`
-- Body: `Delivers Phase 6 in two reviewed commits: localized pilot landing and lead intake; public docs with build-time OpenAPI reference, generated reason-code glossary, and webhook guide; plus draft privacy, terms, and prohibited-use pages. Verification: 511 tests; 39 static public pages; build, copy lint, formatter-after-build, lint, typecheck, and diff check pass. Known pre-launch gates: Lighthouse ≥95 remains unmeasured; legal pages are DRAFT pending counsel; lead expiry is marked at 180 days and requires manual handling until the Phase 7 purge job.`
-
-After the commit, push, and draft-PR creation, record the commit hash, remote branch, and PR URL in `CTO-REPORT.md`; set `STATE.md` to `awaiting_pm_review` with Step `6.2`; and stop. Do not edit product code, begin Step 7.1, merge, deploy, enable production SMTP, process real customer data, add payments, or remove/approve the DRAFT legal banner.
+   If the exact set differs, stop without staging or committing.
+2. Commit those paths in one atomic commit with this exact message: `billing: add invoice-based pilot billing`.
+3. Push only `feat/phase-7-lifecycle-billing` to `origin`. Do not push or modify `main`.
+4. Create one **draft** pull request from `feat/phase-7-lifecycle-billing` into `main`, titled `Phase 7: lifecycle controls and pilot billing`. Its body must summarize Steps 7.1–7.2, cite the 569-test verification, state that billing is invoice-and-ledger only with no payment provider, flag the DRAFT privacy-policy data-map prerequisite, and state that the product owner manually merges it.
+5. Record the resulting commit hash, remote branch, and PR URL in `CTO-REPORT.md`; set `STATE.md` to `awaiting_pm_review`, owner PM, with remote-handoff verification and product-owner merge as the next actions; then stop.
 
 ## Explicit exceptional permissions
 
-- [x] Commit — scope: `one atomic Step 6.2 commit containing only the listed paths on feat/phase-6-public-site; message exactly “web: add public docs and draft legal pages”.`
-- [x] Push — scope: `only feat/phase-6-public-site to origin; never main.`
-- [x] Create draft pull request — scope: `one new draft PR from feat/phase-6-public-site into main; title and body exactly as specified above.`
-- [ ] Merge — scope: `N/A — product owner merges manually in GitHub.`
-- [ ] Deploy — scope: `N/A`
-- [ ] Delete material data — scope: `N/A`
-- [ ] Enable production SMTP — scope: `N/A`
-- [ ] Process real customer data — scope: `N/A`
-- [ ] Add a payment provider — scope: `N/A`
-- [ ] Change legal/privacy policy — scope: `N/A — pages remain DRAFT pending counsel.`
+- [x] Commit — scope: `Only the exact 39 reviewed Step 7.2 paths listed above, as one atomic commit on feat/phase-7-lifecycle-billing.`
+- [x] Push — scope: `Only feat/phase-7-lifecycle-billing to origin; never main.`
+- [x] Create draft pull request — scope: `One new draft PR from feat/phase-7-lifecycle-billing to main with the exact title above.`
+- [ ] Merge — scope: `Product owner only, manually in GitHub.`
+- [ ] Deploy — scope: `N/A`.
+- [ ] Delete material data — scope: `N/A — only isolated test fixtures/objects permitted during verification.`
+- [ ] Enable production SMTP — scope: `N/A`.
+- [ ] Process real customer data — scope: `N/A`.
+- [ ] Add a payment provider — scope: `N/A`.
+- [ ] Change legal/privacy policy — scope: `N/A`.
 
 ## State transition
 
 - State status: `ready_for_cto`
-- Current step after decision: `6.2` (approved Git-sync and Phase 6 draft-PR handoff only)
+- Current step: `7.2` (approved sync handoff only)
 - Owner: `Claude Code`
-- Next action: `Commit, push, and create only the authorized Phase 6 draft PR; report the result, set awaiting_pm_review, and stop.`
+- Next action: `Perform only the explicitly authorized Phase 7 commit, push, and draft-PR handoff; report and stop.`

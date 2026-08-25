@@ -20,6 +20,7 @@ import {
   softDeleteOrganization,
   updateOrgSettings,
   verifyPassword,
+  wipeCheckDataForOrg,
   type DatabaseClient,
 } from '@tozalist/db'
 import { sendError } from '../errors.js'
@@ -32,6 +33,8 @@ import {
   type SessionData,
 } from './session.js'
 import { generateTotpSecret, totpUri, verifyTotp } from './totp.js'
+import { buildOrgDataExport, EXPORT_LINK_TTL_SECONDS } from './data-export.js'
+import type { ObjectStorage } from '@tozalist/shared'
 
 /**
  * /internal/* - the dashboard's session-cookie API. Never API-key
@@ -49,6 +52,8 @@ export type InternalRouteOptions = {
   session: SessionConfig
   dashboardOrigin: string
   clock?: () => number
+  /** Required by the data-export and check-data-wipe endpoints. */
+  storage?: ObjectStorage
 }
 
 const HIDDEN = { hide: true } as const
@@ -485,6 +490,113 @@ export const internalRoutes = fp<InternalRouteOptions>(async (app: FastifyInstan
       )
       if (!updated) return sendError(reply, 'UNAUTHORIZED')
       return reply.status(200).send({ data: { updated: true }, meta: { request_id: request.id } })
+    },
+  )
+
+  // ---- data lifecycle (roadmap 7.1) ---------------------------------------
+
+  app.post('/internal/export', { schema: HIDDEN }, async (request, reply) => {
+    const authed = await requireSession(request, reply, { mfa: true, csrf: true })
+    if (authed === null) return
+    if (authed.session.role !== 'admin') return sendError(reply, 'UNAUTHORIZED')
+    if (opts.storage === undefined) {
+      request.log.error({ request_id: request.id }, 'export requested without storage configured')
+      return sendError(reply, 'INTERNAL_ERROR')
+    }
+
+    const result = await buildOrgDataExport(
+      { db: opts.db, storage: opts.storage },
+      authed.session.orgId,
+      new Date(clock()),
+    )
+    // The signed URL is returned to the requester ONLY - the audit trail
+    // records that an export happened, never the credential-bearing link.
+    await recordAuditEvent(opts.db, {
+      orgId: authed.session.orgId,
+      actorUserId: authed.session.userId,
+      action: 'data.exported',
+      targetType: 'organization',
+      targetId: authed.session.orgId,
+      metadata: { export_id: result.exportId, link_ttl_seconds: EXPORT_LINK_TTL_SECONDS },
+    })
+    return reply.status(200).send({
+      data: {
+        export_id: result.exportId,
+        url: result.url,
+        expires_at: result.expiresAt.toISOString(),
+      },
+      meta: { request_id: request.id },
+    })
+  })
+
+  app.post<{ Body: { confirm: string } }>(
+    '/internal/checks/delete-all',
+    {
+      schema: {
+        ...HIDDEN,
+        body: {
+          type: 'object',
+          properties: { confirm: { type: 'string', minLength: 1, maxLength: 32 } },
+          required: ['confirm'],
+          additionalProperties: false,
+        },
+      },
+    },
+    async (request, reply) => {
+      const authed = await requireSession(request, reply, { mfa: true, csrf: true })
+      if (authed === null) return
+      if (authed.session.role !== 'admin') return sendError(reply, 'UNAUTHORIZED')
+      // Typing the exact word is the deliberate friction for a hard delete.
+      if (request.body.confirm !== 'DELETE') {
+        return sendError(reply, 'VALIDATION_ERROR', 'Type DELETE to confirm.')
+      }
+      if (opts.storage === undefined) {
+        request.log.error({ request_id: request.id }, 'wipe requested without storage configured')
+        return sendError(reply, 'INTERNAL_ERROR')
+      }
+
+      const storage = opts.storage
+      // Objects are deleted inside the wipe transaction, BEFORE any row: a
+      // storage failure rolls the whole wipe back (rows intact, no audit, no
+      // success response) and the request can simply be retried. The org row
+      // is locked for the duration, so a concurrently created batch cannot
+      // slip between key enumeration and row deletion.
+      let wiped
+      try {
+        wiped = await wipeCheckDataForOrg(opts.db, authed.session.orgId, (keys) =>
+          storage.deleteObjects(keys),
+        )
+      } catch (error) {
+        request.log.error(
+          { request_id: request.id, error_name: error instanceof Error ? error.name : 'Error' },
+          'check-data wipe failed before completion',
+        )
+        return sendError(reply, 'INTERNAL_ERROR')
+      }
+      if (wiped === null) return sendError(reply, 'UNAUTHORIZED')
+
+      await recordAuditEvent(opts.db, {
+        orgId: authed.session.orgId,
+        actorUserId: authed.session.userId,
+        action: 'check_data.deleted',
+        targetType: 'organization',
+        targetId: authed.session.orgId,
+        metadata: {
+          email_checks: wiped.emailChecks,
+          phone_checks: wiped.phoneChecks,
+          batches: wiped.batches,
+          batch_objects: wiped.batchObjects,
+        },
+      })
+      return reply.status(200).send({
+        data: {
+          deleted: true,
+          email_checks: wiped.emailChecks,
+          phone_checks: wiped.phoneChecks,
+          batches: wiped.batches,
+        },
+        meta: { request_id: request.id },
+      })
     },
   )
 

@@ -5,6 +5,7 @@ import { createObjectStorage, EngineClient, readS3Config } from '@tozalist/share
 import { buildConnectionOptions } from './connection.js'
 import { readWorkerConfig } from './config.js'
 import { buildBatchWorker } from './batch/worker.js'
+import { buildLifecycleWorker, scheduleLifecycleSweep } from './lifecycle/worker.js'
 import { buildWebhookPublisher, buildWebhookWorker } from './webhooks/worker.js'
 import { DomainCircuit } from './smtp/domain-circuit.js'
 import { MxThrottle } from './smtp/throttle.js'
@@ -59,6 +60,13 @@ const webhookWorker = buildWebhookWorker({
   deps: { db, logger },
 })
 
+// Hourly retention sweep. Registration is idempotent across worker restarts.
+const lifecycleWorker = buildLifecycleWorker({
+  connection: connectionOptions,
+  deps: { db, storage, logger, now: () => new Date() },
+})
+await scheduleLifecycleSweep(connectionOptions)
+
 const worker = buildSmtpWorker({
   connection: connectionOptions,
   concurrency: config.smtpWorkerConcurrency,
@@ -75,7 +83,7 @@ const worker = buildSmtpWorker({
 console.log('worker ready')
 logger.info(
   {
-    queues: ['smtp-probe', 'batch-process', 'webhook-deliver'],
+    queues: ['smtp-probe', 'batch-process', 'webhook-deliver', 'lifecycle-purge'],
     concurrency: config.smtpWorkerConcurrency,
     smtp_enabled: config.smtpEnabled,
   },
@@ -89,6 +97,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
       const drain = await shutdownWorker(worker, logger, 30_000)
       await batchWorker.close().catch(() => undefined)
       await webhookWorker.close().catch(() => undefined)
+      await lifecycleWorker.close().catch(() => undefined)
       await webhookPublisher.close().catch(() => undefined)
       storage.close()
       await Promise.allSettled([redis.quit(), sql.end()])

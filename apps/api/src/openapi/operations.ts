@@ -511,6 +511,98 @@ export const deleteBatchOperation: ProductOperation = {
   },
 }
 
+export const deleteEmailCheckOperation: ProductOperation = {
+  operationId: 'deleteEmailCheck',
+  method: 'DELETE',
+  path: '/v1/email/check/{id}',
+  schema: {
+    operationId: 'deleteEmailCheck',
+    tags: ['Email checks'],
+    summary: 'Delete one email check result',
+    description:
+      'Immediately and permanently deletes a stored email check result; audit-logged. Deletion never refunds ' +
+      'the credit the check consumed. Results the organization cannot read - unknown ids, expired rows, other ' +
+      'organizations\u2019 checks - all return the same 404.',
+    security: BEARER_SECURITY,
+    params: {
+      type: 'object',
+      properties: { id: { type: 'string', format: 'uuid' } },
+      required: ['id'],
+      additionalProperties: false,
+    },
+    response: {
+      200: {
+        description: 'The stored result was deleted.',
+        type: 'object',
+        headers: REQUEST_ID_HEADER,
+        properties: {
+          data: {
+            type: 'object',
+            properties: {
+              deleted: { type: 'boolean', enum: [true] },
+              check_id: { type: 'string', format: 'uuid' },
+            },
+            required: ['deleted', 'check_id'],
+            additionalProperties: false,
+          },
+          meta: SIMPLE_META,
+        },
+        required: ['data', 'meta'],
+        additionalProperties: false,
+      },
+      400: errorResponse('VALIDATION_ERROR', 'The id is not a UUID.'),
+      404: errorResponse('NOT_FOUND', 'Unknown, expired, or not owned by this organization.'),
+      ...COMMON_V1_ERRORS,
+    },
+  },
+}
+
+export const deletePhoneCheckOperation: ProductOperation = {
+  operationId: 'deletePhoneCheck',
+  method: 'DELETE',
+  path: '/v1/phone/check/{id}',
+  schema: {
+    operationId: 'deletePhoneCheck',
+    tags: ['Phone checks'],
+    summary: 'Delete one phone check result',
+    description:
+      'Immediately and permanently deletes a stored phone check result; audit-logged. Deletion never refunds ' +
+      'the credit the check consumed. Results the organization cannot read - unknown ids, expired rows, other ' +
+      'organizations\u2019 checks - all return the same 404.',
+    security: BEARER_SECURITY,
+    params: {
+      type: 'object',
+      properties: { id: { type: 'string', format: 'uuid' } },
+      required: ['id'],
+      additionalProperties: false,
+    },
+    response: {
+      200: {
+        description: 'The stored result was deleted.',
+        type: 'object',
+        headers: REQUEST_ID_HEADER,
+        properties: {
+          data: {
+            type: 'object',
+            properties: {
+              deleted: { type: 'boolean', enum: [true] },
+              check_id: { type: 'string', format: 'uuid' },
+            },
+            required: ['deleted', 'check_id'],
+            additionalProperties: false,
+          },
+          meta: SIMPLE_META,
+        },
+        required: ['data', 'meta'],
+        additionalProperties: false,
+      },
+      400: errorResponse('VALIDATION_ERROR', 'The id is not a UUID.'),
+      404: errorResponse('NOT_FOUND', 'Unknown, expired, or not owned by this organization.'),
+      ...COMMON_V1_ERRORS,
+    },
+  },
+}
+
 const WEBHOOK_EVENT_ENUM = ['batch.completed', 'batch.failed'] as const
 
 export const createWebhookOperation: ProductOperation = {
@@ -675,6 +767,8 @@ export const PRODUCT_OPERATIONS: readonly ProductOperation[] = [
   createEmailCheckOperation,
   getEmailCheckOperation,
   createPhoneCheckOperation,
+  deleteEmailCheckOperation,
+  deletePhoneCheckOperation,
   getUsageOperation,
   createBatchOperation,
   getBatchOperation,

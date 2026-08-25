@@ -51,6 +51,9 @@ export function Shell({ children }: { children: ReactNode }) {
         <Link href="/usage" className="text-sm text-slate-600 hover:text-slate-900">
           {t('nav.usage')}
         </Link>
+        <Link href="/billing" className="text-sm text-slate-600 hover:text-slate-900">
+          {t('nav.billing')}
+        </Link>
         <Link href="/keys" className="text-sm text-slate-600 hover:text-slate-900">
           {t('nav.keys')}
         </Link>

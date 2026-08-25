@@ -32,6 +32,7 @@ export {
 } from './engine/client.js'
 export {
   BATCH_PROCESS_QUEUE,
+  LIFECYCLE_PURGE_QUEUE,
   parseStoredEmailCheck,
   SMTP_PROBE_QUEUE,
   SMTP_STATUSES,
@@ -45,8 +46,15 @@ export {
 export { buildRedisConnectionOptions, type RedisConnectionOptions } from './redis.js'
 export {
   batchInputKey,
+  exportKeyCreatedAtMs,
+  exportObjectKey,
+  orgObjectPrefix,
+  statementKeyMonth,
+  statementObjectKey,
   batchResultKey,
   createObjectStorage,
+  ensureDeleteSucceeded,
+  STORAGE_DELETE_FAILED,
   readS3Config,
   type ObjectStorage,
   type S3Config,

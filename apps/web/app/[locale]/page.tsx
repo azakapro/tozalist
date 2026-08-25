@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { formatAmount, PLANS } from '@tozalist/core'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { LocaleSwitcher } from '../../lib/locale-switcher'
@@ -191,11 +192,19 @@ export default function LandingPage({ params }: { params: { locale: string } }) 
         <h2 className="text-center text-2xl font-bold">{m('pricing.title')}</h2>
         <p className="mt-2 text-center text-sm text-slate-500">{m('pricing.note')}</p>
         <div className="mt-8 grid gap-6 sm:grid-cols-3">
-          {(['pilot', 'team', 'api'] as const).map((tier) => (
-            <div key={tier} className="flex flex-col rounded-lg border border-slate-200 p-6">
-              <h3 className="font-semibold">{m(`pricing.${tier}.name` as MessageKey)}</h3>
-              <p className="mt-2 text-2xl font-bold">{m(`pricing.${tier}.price` as MessageKey)}</p>
-              <p className="text-sm text-slate-500">{m(`pricing.${tier}.volume` as MessageKey)}</p>
+          {/* Prices and allowances come from @tozalist/core PLANS - the single
+              source of truth shared with the dashboard. Only labels are localized. */}
+          {PLANS.map((plan) => (
+            <div key={plan.code} className="flex flex-col rounded-lg border border-slate-200 p-6">
+              <h3 className="font-semibold">
+                {m(`pricing.${plan.code.toLowerCase()}.name` as MessageKey)}
+              </h3>
+              <p className="mt-2 text-2xl font-bold">
+                {formatAmount(plan.priceUzs, m('pricing.thousands'))} {m('pricing.currency')}
+              </p>
+              <p className="text-sm text-slate-500">
+                {formatAmount(plan.checks, m('pricing.thousands'))} {m('pricing.volumeUnit')}
+              </p>
               <a
                 href="#pilot"
                 className="mt-6 rounded border border-slate-900 px-4 py-2 text-center text-sm font-medium hover:bg-slate-900 hover:text-white"

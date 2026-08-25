@@ -27,6 +27,7 @@ const noopStorage: ObjectStorage = {
   uploadStream: () => Promise.resolve(),
   getStream: () => Promise.reject(new Error('spec export only')),
   deleteObjects: () => Promise.resolve(),
+  listKeys: () => Promise.resolve([]),
   presignDownload: () => Promise.resolve(''),
   ensureBucket: () => Promise.resolve(),
   close: () => undefined,

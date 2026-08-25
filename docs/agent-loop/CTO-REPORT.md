@@ -1,44 +1,34 @@
-# CTO Report — Step 6.2 correction (documentation release integrity)
+# CTO Report — Step 7.2 correction (authoritative grant validation)
 
 ## Step and outcome
 
-Step `6.2`, correction cycle per `PM-DECISION.md`. All four items are done: the format gate now passes immediately after a clean build that freshly exports the OpenAPI document, the four MDX dependency licenses are recorded in `THIRD_PARTY_LICENSES/`, the draft privacy data map no longer presents lead auto-deletion as an existing operation, and the shared Terms MDX links each locale to its own prohibited-use page. Still on `feat/phase-6-public-site`, local-only, uncommitted. No Phase 7 work, no Step 6.1 behavior change, no GitHub writes.
+Step `7.2`, correction cycle per `PM-DECISION.md`. `grantCreditsWithAudit` — the authoritative manual-grant boundary — now enforces the accounting invariant itself: it validates and canonicalizes its input before deriving the reference and before any transaction opens, so an invalid call writes nothing anywhere regardless of who the caller is. Still on `feat/phase-7-lifecycle-billing`, local-only, uncommitted. Nothing else from the reviewed Step 7.2 changed; no Phase 8 work, no GitHub writes, no new dependencies.
 
 ## Correction implemented
 
-1. **Format gate reliable after a clean build** — `apps/web/generated` added to the root `.prettierignore` (the repository's normal ignore mechanism, alongside `dist`, `.next`, and the other generated paths). The build-time OpenAPI export is unchanged and the copy gate untouched. Proven in the PM's exact order: `pnpm -r build` ran first (prebuild freshly exported `apps/web/generated/openapi.json`; 39/39 static pages), the generated file's presence was confirmed, and `pnpm format:check` then passed.
-2. **Dependency licenses recorded** — four new records copied verbatim from each installed package's own license file, following the per-dependency-file convention:
-   - `THIRD_PARTY_LICENSES/next-mdx-MIT.txt` — `@next/mdx` **14.2.35**, license field `MIT` (copyright Vercel, Inc.)
-   - `THIRD_PARTY_LICENSES/mdx-js-loader-MIT.txt` — `@mdx-js/loader` **3.1.1**, license field `MIT` (copyright Compositor and Vercel, Inc.)
-   - `THIRD_PARTY_LICENSES/mdx-js-react-MIT.txt` — `@mdx-js/react` **3.1.1**, license field `MIT` (copyright Compositor and Vercel, Inc.)
-   - `THIRD_PARTY_LICENSES/types-mdx-MIT.txt` — `@types/mdx` **2.0.14** (dev-only), license field `MIT` (copyright Microsoft Corporation)
-   Versions and license fields were read from each package's installed `package.json`.
-3. **Precise draft privacy wording** — the leads row's "How long" now reads "Marked to expire after 180 days\*", and a footnote under the table states plainly that each request stores a 180-day expiry date, that the scheduled job deleting expired requests automatically is planned but not live yet, and that until then expired and requested records are deleted manually. No retention policy, legal status, or roadmap change; the DRAFT banner remains on all three legal pages (asserted by the existing draft-banner tests, still passing).
-4. **Locale-neutral legal navigation** — the Terms link is now relative (`./prohibited-use`). Rendered output verified: `/ru/terms` HTML carries `href="./prohibited-use"`, which resolves to `/ru/prohibited-use` (and likewise per locale). A sweep for other hard-coded `/uz/`, `/ru/`, `/en/` links across `content/`, `lib/`, and `app/` found none.
+1. **Validation inside the helper, before anything else** (`packages/db/src/billing.ts`): `grantCreditsWithAudit` now rejects, up front, any credits value that is not a positive safe integer (`Number.isSafeInteger(credits) && credits > 0` — this refuses negatives, zero, fractions, `NaN`, infinities, and beyond-`MAX_SAFE_INTEGER` values) and any note that is blank after trimming. The check runs **before** the reference hash is computed and **before** the grant transaction opens — an invalid call cannot touch the ledger, the audit trail, or even the reference space.
+2. **Canonical note used consistently**: the trimmed note is the single canonical form used for **both** the reference hash and the stored ledger note. Whitespace-only variants of the same invoice now hash to the same reference, so `"  Invoice INV-9 paid  "` replayed as `"Invoice INV-9 paid"` collides with the replay guard instead of becoming a second grant. `grantReference`'s contract comment states the canonical-note requirement.
+3. **Fixed, caller-safe failure**: invalid input returns the new `{ ok: false, reason: 'invalid_input' }` — a fixed token that never echoes the note, the amount, or any connection/configuration data. The CLI keeps its friendly per-field messages for interactive use and now also maps the helper's `invalid_input` defensively ("the grant input was rejected — nothing was granted"), so even a disagreement between the two validation layers stays safe and quiet.
+4. **Nothing else altered**: plan pricing, invoice-request retention, bank-detail handling, statement storage, signed-link scoping, and the payment-provider boundary are untouched (their tests all still pass unchanged).
+
+## Regression tests added (database layer, direct against the helper)
+
+- **Invalid inputs write nothing**: `-100`, `0`, `2.5`, `NaN`, `+Infinity`, `MAX_SAFE_INTEGER + 2`, empty note, and whitespace-only note each return exactly `{ ok: false, reason: 'invalid_input' }`, and the org's ledger **and** audit tables are then asserted completely empty — zero rows leaked from eight invalid attempts.
+- **Canonical whitespace replay-protection**: a padded note grants once; the trimmed variant of the same invoice is refused as `duplicate_reference`; exactly one ledger row exists, its stored note is the canonical trimmed text, and its reference equals `grantReference(credits, trimmedNote)`.
+- **Retained behavior re-verified**: the existing tests for successful grants (one ledger row + one audit event atomically), identical-command replay refusal, unknown-org and deleted-org refusal, and all CLI validation/replay/output-hygiene behavior pass unchanged.
 
 ## Files changed (correction only)
 
-`.prettierignore` (+`apps/web/generated`) · `THIRD_PARTY_LICENSES/{next-mdx-MIT.txt, mdx-js-loader-MIT.txt, mdx-js-react-MIT.txt, types-mdx-MIT.txt}` (new) · `apps/web/content/privacy.mdx` (leads row + footnote) · `apps/web/content/terms.mdx` (relative link).
+`packages/db/src/billing.ts` (validation, canonicalization, `invalid_input` variant) · `packages/db/src/billing.integration.test.ts` (+2 tests) · `apps/api/src/cli/billing-grant.ts` (defensive `invalid_input` mapping).
 
-## Verification results (PM's required order)
+## Verification results
 
-1. `pnpm db:test:prepare` ✓ (`tozalist_test` ready)
-2. Copy lint ✓ clean (messages + all 6 MDX files, including the reworded privacy text)
-3. Web tests ✓ **24** · API tests ✓ **146**
-4. `pnpm -r build` ✓ — prebuild ran the copy gate and freshly exported `openapi.json`; 39/39 static pages; corrected privacy wording and relative Terms link confirmed in the rendered HTML
-5. `pnpm -r test` ✓ **511** (core 173, shared 43, db 52, api 146, worker 50, dashboard 23, web 24)
-6. `pnpm lint` ✓
-7. `pnpm -r typecheck` ✓ (exit 0)
-8. `pnpm format:check` ✓ — run **after** the build with `apps/web/generated/openapi.json` present on disk
-9. `git diff --check` ✓ clean
+`pnpm db:test:prepare` ✓ · affected suite: db ✓ **71** (+2) · `pnpm -r build` ✓ · `pnpm -r test` ✓ **569** (core 177, shared 48, db **71**, api 160, worker 55, dashboard 32, web 26) · `pnpm lint` ✓ · `pnpm -r typecheck` ✓ · `pnpm format:check` ✓ after the build · `git diff --check` ✓ clean. **Lighthouse remains `NOT_RUN`** (Phase 9 gate). No production, provider, legal, or destructive action; tests stayed within the isolated test database.
 
-**Lighthouse remains `NOT_RUN`** — no audit was executed; the ≥95 target is not claimed and stays a Phase 9 pre-launch gate.
+## Notes for PM review
 
-## Risks or decisions requiring PM review
-
-- The privacy footnote commits us to manual deletion of expired leads until the Phase 7 purge job ships — an operational promise the owner should be comfortable making while the DRAFT banner is up.
-- Unchanged from the main report: legal copy is engineering-drafted pending real legal review; docs prose is English-only under localized chrome; glossary recommended actions are engineering-written product guidance.
+- The PM's retention note is acknowledged and carried: before the DRAFT privacy policy is finalized, its data map must add the `invoice_requests` record (org, requesting user, plan, timestamp; removed at org purge). No legal copy was touched in this correction, per the explicit prohibition — this stays on the pre-finalization checklist.
 
 ## Git status
 
-`feat/phase-6-public-site`, all Step 6.2 work (implementation + this correction) local and uncommitted on top of `5370fea`. No PR exists. Per PROTOCOL, the single Phase 6 draft PR follows only after corrected-6.2 approval and an explicit sync authorization naming files, message, branch, and PR title.
+`feat/phase-7-lifecycle-billing`, all Step 7.2 work (implementation + this correction) local and uncommitted on top of `17f9055`. No PR exists. Per PROTOCOL, the single Phase 7 draft PR follows only after corrected-7.2 approval and an explicit sync authorization naming files, message, branch, and PR title.

@@ -21,6 +21,7 @@ export type ApiConfig = {
     sessionSecret: string
     dashboardOrigin: string
     cookieSecure: boolean
+    billingBankDetails?: string
   } | null
   /** Public marketing-site origin for CORS and the pilot-request endpoint. */
   readonly webOrigin: string
@@ -55,10 +56,14 @@ function parseInternalAuth(env: Env): ApiConfig['internalAuth'] {
     throw new Error('SESSION_SECRET must be at least 32 characters')
   }
   const origin = env.DASHBOARD_ORIGIN?.trim()
+  const bankDetails = env.BILLING_BANK_DETAILS?.trim()
   return {
     sessionSecret: secret.trim(),
     dashboardOrigin: origin === undefined || origin === '' ? 'http://localhost:3002' : origin,
     cookieSecure: env.NODE_ENV === 'production',
+    // Display-only bank-transfer instructions; omitted when unset, and the
+    // invoice-request endpoint then fails closed instead of inventing details.
+    ...(bankDetails === undefined || bankDetails === '' ? {} : { billingBankDetails: bankDetails }),
   }
 }
 
