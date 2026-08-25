@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { buildRedisConnectionOptions } from '@tozalist/shared'
 import { buildConnectionOptions } from './connection.js'
 
 describe('buildConnectionOptions', () => {
@@ -27,5 +28,22 @@ describe('buildConnectionOptions', () => {
       tls: {},
     })
     expect(buildConnectionOptions('redis://localhost:6379')).not.toHaveProperty('tls')
+  })
+})
+
+describe('parity with the shared parser', () => {
+  it('worker and API obtain structurally identical options for the same URL', () => {
+    const urls = [
+      'redis://localhost:6379',
+      'redis://user:pass@redis.internal:6380/6',
+      'rediss://user:pass@redis.internal/2',
+      'redis://u%40ser:p%40ss@host/1',
+    ]
+    for (const url of urls) {
+      // The API queue publisher passes buildRedisConnectionOptions straight to
+      // BullMQ; the worker's buildConnectionOptions must be the same object
+      // shape, or the two processes could target different databases.
+      expect(buildConnectionOptions(url)).toEqual(buildRedisConnectionOptions(url))
+    }
   })
 })

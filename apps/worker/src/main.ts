@@ -1,35 +1,99 @@
 import { Redis } from 'ioredis'
+import pino from 'pino'
+import { createClient } from '@tozalist/db'
+import { createObjectStorage, EngineClient, readS3Config } from '@tozalist/shared'
 import { buildConnectionOptions } from './connection.js'
 import { readWorkerConfig } from './config.js'
+import { buildBatchWorker } from './batch/worker.js'
+import { buildWebhookPublisher, buildWebhookWorker } from './webhooks/worker.js'
+import { DomainCircuit } from './smtp/domain-circuit.js'
+import { MxThrottle } from './smtp/throttle.js'
+import { buildSmtpWorker, shutdownWorker } from './smtp/worker.js'
+import type { EngineVerifier } from './smtp/types.js'
 
 /**
- * Worker entrypoint.
+ * Worker entrypoint: the smtp-probe queue consumer.
  *
- * Scope note (step 0.1): this process establishes the Redis connection that
- * BullMQ workers will be attached to, then stays alive. It registers no queues
- * and processes no jobs yet.
+ * Every log line is structured JSON. Job payloads carry only row IDs; emails
+ * are loaded from PostgreSQL at processing time and never logged.
  */
+const logger = pino({ base: null })
 const config = readWorkerConfig()
+const connectionOptions = buildConnectionOptions(config.redisUrl)
 
 // lazyConnect belongs to this client, not to the shared options: BullMQ opens
 // and owns its own connections. Connecting explicitly means "worker ready" is
 // only logged after Redis has actually answered.
-const connection = new Redis({ ...buildConnectionOptions(config.redisUrl), lazyConnect: true })
+const redis = new Redis({ ...connectionOptions, lazyConnect: true })
+const { db, sql } = createClient()
+
+let engine: EngineVerifier | undefined
+const getEngine = (): EngineVerifier => {
+  // Instantiated on first use only: with SMTP disabled it never exists.
+  engine ??= new EngineClient()
+  return engine
+}
 
 let shuttingDown = false
+
+redis.on('error', (error: Error) => {
+  if (shuttingDown) return
+  // Only the error class name: a raw Redis error message can echo connection
+  // details, including credentials embedded in the URL.
+  logger.error({ error_name: error.name }, 'worker redis error')
+})
+
+await redis.connect()
+await redis.ping()
+
+const storage = createObjectStorage(readS3Config())
+const webhookPublisher = buildWebhookPublisher(connectionOptions)
+
+const batchWorker = buildBatchWorker({
+  connection: connectionOptions,
+  deps: { db, storage, engine: getEngine(), logger, webhookPublisher },
+})
+
+const webhookWorker = buildWebhookWorker({
+  connection: connectionOptions,
+  deps: { db, logger },
+})
+
+const worker = buildSmtpWorker({
+  connection: connectionOptions,
+  concurrency: config.smtpWorkerConcurrency,
+  deps: {
+    db,
+    throttle: new MxThrottle({ redis }),
+    circuit: new DomainCircuit({ redis }),
+    logger,
+    smtpEnabled: config.smtpEnabled,
+    getEngine,
+  },
+})
+
+console.log('worker ready')
+logger.info(
+  {
+    queues: ['smtp-probe', 'batch-process', 'webhook-deliver'],
+    concurrency: config.smtpWorkerConcurrency,
+    smtp_enabled: config.smtpEnabled,
+  },
+  'worker ready',
+)
+
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     shuttingDown = true
-    void connection.quit().then(() => process.exit(0))
+    void (async () => {
+      const drain = await shutdownWorker(worker, logger, 30_000)
+      await batchWorker.close().catch(() => undefined)
+      await webhookWorker.close().catch(() => undefined)
+      await webhookPublisher.close().catch(() => undefined)
+      storage.close()
+      await Promise.allSettled([redis.quit(), sql.end()])
+      logger.info({ drain }, 'worker shut down')
+      process.exit(drain === 'drained' ? 0 : 1)
+    })()
   })
 }
-
-connection.on('error', (error: Error) => {
-  if (shuttingDown) return
-  // The connection string itself is never logged - it may contain a password.
-  console.error(`worker redis error: ${error.message}`)
-})
-
-await connection.connect()
-await connection.ping()
-console.log('worker ready')
