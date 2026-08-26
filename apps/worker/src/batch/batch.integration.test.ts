@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { Readable } from 'node:stream'
+import { parse } from 'csv-parse/sync'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { eq } from 'drizzle-orm'
 import type { Job } from 'bullmq'
@@ -535,6 +536,67 @@ describe.skipIf(!hasIntegrationEnv)('batch processor', () => {
     expect(payload.event).toBe('batch.failed')
     expect(payload.data.status).toBe('failed')
     expect(enqueued).toEqual([deliveries[0]?.id])
+  })
+
+  it('neutralizes every spreadsheet-formula trigger in result data and headers', async () => {
+    const orgId = await createOrg(db)
+    await grant(orgId, 10)
+    const engine = batchEngine()
+
+    // Six hostile header cells and six hostile data cells cover every trigger.
+    // Formula cells containing a comma/quotes plus tab/CR cells are quoted in
+    // the input so the parser receives each as one precise customer cell.
+    const csv =
+      [
+        '"=header","+header","-header","@header","\theader","\rheader",email,plain',
+        '"=SUM(1,2)","+IMPORT(""http://x"")",-2+5,@INDIRECT(A1),"\tformula","\rformula",formula@danger.test,"comma,value"',
+      ].join('\n') + '\n'
+
+    const batchId = await plantBatch({
+      orgId,
+      csv,
+      totalRows: 1,
+      emailColumn: 6,
+      hasHeader: true,
+    })
+
+    await createBatchProcessor({ db, storage, engine, logger })(job(batchId))
+
+    const result = await readObject(storage, `org/${orgId}/batches/${batchId}/result.csv`)
+    const records = parse(result) as string[][]
+
+    expect(records).toHaveLength(2)
+    expect(records[0]?.slice(0, 8)).toEqual([
+      "'=header",
+      "'+header",
+      "'-header",
+      "'@header",
+      "'\theader",
+      "'\rheader",
+      'email',
+      'plain',
+    ])
+    expect(records[0]?.slice(8)).toEqual([
+      'normalized_email',
+      'verdict',
+      'score',
+      'reason_codes',
+      'suggestion',
+    ])
+    expect(records[1]?.slice(0, 8)).toEqual([
+      "'=SUM(1,2)",
+      '\'+IMPORT("http://x")',
+      "'-2+5",
+      "'@INDIRECT(A1)",
+      "'\tformula",
+      "'\rformula",
+      'formula@danger.test',
+      'comma,value',
+    ])
+    expect(records[1]?.[8]).toBe('formula@danger.test')
+
+    // Output hardening never mutates the customer-owned input object.
+    expect(await readObject(storage, batchInputKey(orgId, batchId))).toBe(csv)
   })
 
   it('streaming keeps memory flat between a 1k-row and a 50k-row file', async () => {

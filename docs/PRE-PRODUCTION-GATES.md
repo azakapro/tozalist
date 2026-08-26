@@ -6,18 +6,13 @@ None of these are authorized inside Phase 8 implementation work.
 
 ## 1. Next.js / React framework upgrade (framework support)
 
-- **Status:** BLOCKING, not yet scheduled.
-- **Current:** dashboard and web run Next.js `14.2.20`.
-- **Problem:** as of this review (2026-08-25), Next.js lists 14.x as
-  unsupported, and its 11 December 2025 security update instructs all
-  13.x/14.x users to upgrade for additional React Server Components
-  vulnerabilities.
-- **Required before launch:** the product owner approves a supported
-  Next.js/React upgrade plan and its full regression review (all dashboard and
-  web tests, CSP/header behavior, MDX/legal pages, i18n routing, the pricing
-  single-source rendering, and a fresh security pass). The roadmap's
-  fixed-stack rule means the upgrade is a separate approved step — this is a
-  release gate, not a waiver.
+- **Status:** REMEDIATED — Step 8.3 merged in PR #7 on 2026-08-26.
+- **Current:** dashboard and web use exact-pinned Next.js `16.3.3`, React
+  `19.2.8`, and React DOM `19.2.8`.
+- **Evidence:** the async App Router migration, 38-page static build,
+  CSP/security headers, dashboard authentication suites, MDX/legal pages, i18n
+  routing, pricing single-source rendering, and framework-specific regressions
+  passed locally and in both remote CI runs before merge.
 - **Sources:** Next.js support policy (https://nextjs.org/support-policy);
   Next.js security update, 11 December 2025
   (https://nextjs.org/blog/security-update-2025-12-11).
@@ -30,10 +25,16 @@ None of these are authorized inside Phase 8 implementation work.
 
 ## 3. Batch-result CSV formula hardening (carried from Step 7.1)
 
-- **Status:** open.
-- The self-service data export neutralizes spreadsheet formulas; the older
-  Step 4.1 batch **result** CSV (which reproduces customer input) does not.
-  Harden it in the pre-launch security pass.
+- **Status:** REMEDIATED locally in Step 8.5 — pending PM review and later
+  authorized remote CI/merge.
+- Every string cell written to a batch result CSV, including customer headers
+  and original columns, is neutralized before CSV quoting when it begins with
+  `=`, `+`, `-`, `@`, tab, or carriage return. The stored input object is not
+  modified.
+- A real worker integration test parses the produced result CSV and verifies
+  every trigger cell-by-cell, including quoted/comma-containing values and
+  hostile headers. Ordinary cells round-trip unchanged, the input remains
+  byte-identical, and the existing 1k-versus-50k streaming memory test passes.
 
 ## 4. Metrics monitoring credential and bind
 
@@ -44,8 +45,8 @@ None of these are authorized inside Phase 8 implementation work.
 
 ## 5. Backend dependency-security remediation (high-severity advisories)
 
-- **Status:** REMEDIATED (Step 8.4, 2026-08-26) — pending PM review and a later
-  authorized push/merge. Remote CI on this work is `NOT_RUN`.
+- **Status:** REMEDIATED and merged — Step 8.4, PR #8, 2026-08-26. Both the
+  push and pull-request remote CI gates passed before merge.
 - **What was vulnerable:** four high-severity production advisories in the
   Fastify/Drizzle chain, recorded during Step 8.3.
 - **Resolved patched versions now in the production tree:**
@@ -74,7 +75,6 @@ None of these are authorized inside Phase 8 implementation work.
   including 10 new Fastify-5/Drizzle security regressions. The accuracy
   corpus remains 500/500. No schema or migration changed.
 
-**Still open — this gate does not clear the others.** Lighthouse (#2),
-batch-result CSV formula hardening (#3), the metrics deployment configuration
-(#4), and the Uzbekistan-qualified legal review remain blocking before any
-Phase 9 deployment or public beta.
+**Still open — these remediations do not clear the others.** Lighthouse (#2),
+the metrics deployment configuration (#4), and the Uzbekistan-qualified legal
+review remain blocking before a fully certified real-customer launch.
