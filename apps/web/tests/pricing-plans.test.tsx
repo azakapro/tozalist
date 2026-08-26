@@ -13,9 +13,11 @@ afterEach(cleanup)
  * test - divergence cannot ship silently.
  */
 describe('pricing single-sourcing', () => {
-  it('renders every plan price and allowance from PLANS, in every locale', () => {
+  it('renders every plan price and allowance from PLANS, in every locale', async () => {
     for (const locale of LOCALES) {
-      const { container } = render(<LandingPage params={{ locale }} />)
+      // Next 16: params is async; the page is an async Server Component.
+      const ui = await LandingPage({ params: Promise.resolve({ locale }) })
+      const { container } = render(ui)
       const text = container.textContent ?? ''
       for (const plan of PLANS) {
         const price = `${formatAmount(plan.priceUzs, t(locale, 'pricing.thousands'))} ${t(locale, 'pricing.currency')}`

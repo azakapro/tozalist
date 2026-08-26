@@ -107,13 +107,14 @@ function Operation({ op }: { op: OperationEntry }) {
   )
 }
 
-export default function ReferencePage({ params }: { params: { locale: string } }) {
-  if (!isLocale(params.locale)) notFound()
+export default async function ReferencePage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params
+  if (!isLocale(locale)) notFound()
   const doc = loadOpenApiDocument()
   const operations = listOperations(doc)
   const tags = [...new Set(operations.map((op) => op.tag))]
   return (
-    <PageShell locale={params.locale}>
+    <PageShell locale={locale}>
       <h1 className="mb-2 pt-4 text-2xl font-bold">API reference</h1>
       <p className="mb-1 text-sm text-slate-600">
         Generated at build time from the same OpenAPI {doc.openapi} document the API serves at{' '}

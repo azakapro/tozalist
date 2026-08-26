@@ -8,11 +8,12 @@ export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }))
 }
 
-export default function GlossaryPage({ params }: { params: { locale: string } }) {
-  if (!isLocale(params.locale)) notFound()
+export default async function GlossaryPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params
+  if (!isLocale(locale)) notFound()
   const entries = buildGlossary()
   return (
-    <PageShell locale={params.locale}>
+    <PageShell locale={locale}>
       <h1 className="mb-2 pt-4 text-2xl font-bold">Reason codes</h1>
       <p className="mb-6 text-sm text-slate-600">
         Generated directly from the product&apos;s reason-code registry — this page cannot drift
