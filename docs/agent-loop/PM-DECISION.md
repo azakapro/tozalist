@@ -1,5 +1,131 @@
 # PM Decision
 
+## Step 8.5 local approval and Git handoff — 2026-08-26
+
+- Decision: `APPROVED`
+- Baseline: `feat/batch-csv-formula-hardening` at exact merged main `ead04597ae99bb0b1c32f993d6806809bbf2fdc6`.
+- Actual diff: `PASS — exactly six paths: worker serializer, focused worker integration test, pre-production gate record, and the three relay files.`
+- Security behavior: `PASS — actual produced CSV is parsed cell-by-cell; all six formula triggers are apostrophe-neutralized in hostile headers and data, quoted/comma content remains valid, ordinary cells are unchanged, and the stored input is byte-identical.`
+- Regression evidence: `PASS — worker 60/60; workspace 625/625; 50k streaming memory assertion; frozen install, production audit, secret scan, copy lint, guarded test DB preparation, build, typecheck, lint, format, and diff check.`
+- Drift/scope: `PASS — no dependency, package manifest, lockfile, schema, migration, deployment, SMTP, payment, Lighthouse implementation, or unrelated change.`
+
+### Authorized Git handoff
+
+1. Stage and commit exactly these six paths:
+   - `apps/worker/src/batch/processor.ts`
+   - `apps/worker/src/batch/batch.integration.test.ts`
+   - `docs/PRE-PRODUCTION-GATES.md`
+   - `docs/agent-loop/CTO-REPORT.md`
+   - `docs/agent-loop/PM-DECISION.md`
+   - `docs/agent-loop/STATE.md`
+2. Use the exact commit message:
+
+   ```text
+   security: neutralize batch result formulas
+   ```
+
+3. Push only `feat/batch-csv-formula-hardening` to origin; do not alter `main`.
+4. Create one draft PR into `main` titled:
+
+   ```text
+   Release gate: harden batch result CSV cells
+   ```
+
+   The body must summarize the six formula triggers, parsed-cell/input-preservation
+   evidence, 60 worker tests, 625 workspace tests, clean audit, unchanged streaming
+   behavior, and remaining Lighthouse/metrics/legal gates. State that manual
+   product-owner merge is required.
+5. Do not merge. Record the commit/PR/remote-CI-pending evidence in the relay as
+   uncommitted post-handoff edits, set state to `awaiting_pm_review`, and stop.
+
+### State transition
+
+- State status: `ready_for_cto`
+- Current step: `8.5`
+- Owner: `Codex orchestration for the approved mechanical handoff`
+- Next action: `Create only the exact Step 8.5 commit, feature push, and draft PR; then stop for remote CI review.`
+
+## Step 8.4 merge verification and Step 8.5 authorization — 2026-08-26
+
+### Step 8.4 merge verification
+
+- Decision: `APPROVED`
+- PR #8: `MERGED` at `2026-08-26T15:47:22Z`.
+- Merged main: `origin/main` is merge commit `ead04597ae99bb0b1c32f993d6806809bbf2fdc6`, whose parents are the prior main `91ce3ae7d5ddd6543d308d78c6c8110ec1222a66` and approved Step 8.4 commit `1af38f7d2927f50627ee2d18443777e3ff01c532`.
+- Ancestry: `1af38f7` is confirmed reachable from `origin/main`.
+- Step 8.4 status: `COMPLETE`.
+
+### Step 8.5 — batch-result CSV formula hardening
+
+- Decision: `APPROVED`
+- Owner: `Claude Code (CTO)`
+- Execution mode: `Local implementation and verification only; no commit, push, PR, merge, deployment, or Step 9 work in this action.`
+- Fast-launch priority: `This is the final small code-level security gate before the synthetic-data deployment track. Lighthouse optimization and extended beta documentation are deferred; legal approval remains mandatory before real customer data.`
+
+#### Authorized scope
+
+1. Preserve the three uncommitted relay files, switch/create `feat/batch-csv-formula-hardening` from exact `origin/main` commit `ead04597ae99bb0b1c32f993d6806809bbf2fdc6`, and carry only the relay records forward before implementation. Stop on any baseline or worktree discrepancy.
+2. Harden `apps/worker/src/batch/processor.ts` so every string cell written to a batch **result** CSV is neutralized before ordinary CSV quoting when its first character is `=`, `+`, `-`, `@`, tab, or carriage return. Prefix one apostrophe, matching the already-proven self-service export behavior. This includes customer-controlled original data and headers; do not alter the stored input CSV.
+3. Preserve valid CSV round-tripping, quotes, commas, newlines, Unicode, ordinary values, output column order, streaming/constant-memory behavior, credit accounting, cache/deduplication, malformed-row behavior, refunds, storage keys, and webhook behavior. Do not buffer the result in memory.
+4. Add focused worker regression coverage using actual produced result CSV data. Cover every dangerous leading character, quoted/comma-containing formula cells, hostile header cells, ordinary values unchanged, and proof that the original uploaded CSV is unchanged. Parse or otherwise assert cells precisely enough that quoting cannot create a false pass.
+5. Update `docs/PRE-PRODUCTION-GATES.md` only after evidence passes: mark gate #3 remediated with the test evidence, and correct stale gate #1 to record the already-merged Step 8.3 Next.js 16/React 19 remediation. Do not modify other gate requirements.
+6. No new dependency, lockfile change, schema/migration change, generated deployment file, Lighthouse implementation, SMTP change, payment work, or unrelated cleanup is authorized.
+
+#### Required verification
+
+Run and report exact exit status and totals for:
+
+1. `pnpm install --frozen-lockfile`
+2. `pnpm security:audit`
+3. `pnpm secret-scan`
+4. `pnpm web:lint-copy`
+5. `pnpm db:test:prepare`
+6. `pnpm --filter @tozalist/worker build`
+7. `pnpm --filter @tozalist/worker typecheck`
+8. `pnpm --filter @tozalist/worker test`
+9. `pnpm -r test`
+10. `pnpm lint`
+11. `pnpm format:check`
+12. `git diff --check`
+
+Also prove no dependency, lockfile, schema, or migration file changed and that nothing is staged, committed, or pushed.
+
+#### Acceptance criteria
+
+- Every formula trigger is inert in actual batch result cells, including hostile headers and quoted/comma-containing input.
+- Ordinary cells and the input object are byte-preserved; valid output CSV remains parseable and the pipeline remains streaming.
+- Focused worker and full workspace suites pass with security audit clean.
+- Gate documentation is accurate; all other launch blockers remain explicit.
+- `CTO-REPORT.md` and `STATE.md` contain exact evidence; state returns to `awaiting_pm_review` with PM ownership; Claude stops.
+
+### State transition
+
+- State status: `ready_for_cto`
+- Current step: `8.5`
+- Owner: `Claude Code (CTO)`
+- Next action: `Implement and verify only the bounded batch-result CSV formula hardening, report, and stop.`
+
+## Step 8.4 remote verification — 2026-08-26
+
+- Decision: `APPROVED`
+- Pull request: `#8 — Release gate: remediate backend dependency advisories`.
+- Remote commit: `1af38f7d2927f50627ee2d18443777e3ff01c532`, one commit with parent `91ce3ae7d5ddd6543d308d78c6c8110ec1222a66` and the exact approved message.
+- Remote diff: `PASS — exactly the 29 PM-authorized paths; no extra file.`
+- Remote CI: `PASS — both the push-event gates job (run 32981390832) and pull-request gates job (run 32981433826) completed successfully on the approved commit.`
+- PR state: `OPEN, DRAFT, UNMERGED`, base `main`, head `feat/backend-dependency-security`; exact approved title and body.
+- Scope: `PASS — no deployment, production SMTP, real customer data, payment-provider, schema/migration, Phase 9, or unrelated work.`
+
+### Product-owner action
+
+The Step 8.4 implementation and remote evidence are approved for manual merge. The product owner may mark PR #8 ready and merge it into `main`. Codex/Claude must not perform that merge without a separate direct instruction from the product owner. After the owner merges, PM must fetch and verify `origin/main` before authorizing the next launch-critical step.
+
+### State transition
+
+- State status: `awaiting_owner_merge`
+- Current step: `8.4`
+- Owner: Product owner
+- Next action: `Product owner manually merges approved PR #8; PM then verifies origin/main and selects the shortest safe launch-critical next step.`
+
 ## Step 8.4 correction approval and Git handoff — 2026-08-26
 
 - Decision: `APPROVED`

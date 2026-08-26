@@ -436,14 +436,24 @@ function readLayout(stats: unknown): { emailColumn: number; hasHeader: boolean }
   return { emailColumn, hasHeader }
 }
 
-/** Minimal CSV escaping: quote cells containing separators, quotes or newlines. */
+/**
+ * Minimal CSV escaping with spreadsheet-formula neutralization. Every string
+ * cell passes through this boundary, including customer-controlled headers and
+ * original columns, before ordinary CSV quoting is applied.
+ */
 function toCsvLine(cells: string[]): string {
   return (
     cells
       .map((cell) => {
-        if (/[",\n\r]/.test(cell)) return `"${cell.replaceAll('"', '""')}"`
-        return cell
+        const hardened = neutralizeFormula(cell)
+        if (/[",\n\r]/.test(hardened)) return `"${hardened.replaceAll('"', '""')}"`
+        return hardened
       })
       .join(',') + '\n'
   )
+}
+
+/** Matches the already-proven self-service export formula defense. */
+function neutralizeFormula(cell: string): string {
+  return /^[=+\-@\t\r]/.test(cell) ? `'${cell}` : cell
 }

@@ -1,10 +1,72 @@
-# CTO Report — Step 8.4 correction (Backend dependency-security remediation)
+# CTO Report — Step 8.5 (Batch-result CSV formula hardening)
+
+## Outcome
+
+Step `8.5` is implemented and verified locally on
+`feat/batch-csv-formula-hardening`, based exactly on merged `origin/main`
+`ead04597ae99bb0b1c32f993d6806809bbf2fdc6`.
+
+- Every string cell emitted by the streaming batch-result serializer is now
+  neutralized before CSV quoting when it starts with `=`, `+`, `-`, `@`, tab,
+  or carriage return. This covers customer-controlled headers and original
+  columns as well as appended string fields.
+- The stored input CSV is byte-identical; output column order, valid CSV
+  quoting, ledger/cache/deduplication behavior, storage keys, refunds, webhooks,
+  and streaming memory behavior are unchanged.
+- One focused integration test parses the actual stored result CSV and proves
+  all six triggers inert in both hostile headers and data cells, including a
+  formula containing a comma/quotes. It also proves ordinary cells unchanged
+  and the original input object untouched.
+- Launch-gate documentation now records the already-merged Steps 8.3 and 8.4
+  accurately and marks the Step 8.5 formula gate remediated locally.
+
+Claude Code produced the initial bounded implementation before its API
+connection dropped. Codex orchestration reviewed the actual diff, replaced
+substring-based assertions with precise parsed-cell assertions, added the
+missing hostile-header and carriage-return coverage, and ran the complete
+authorized verification set.
+
+## Verification
+
+| Command | Exit | Evidence |
+| --- | --- | --- |
+| `pnpm install --frozen-lockfile` | 0 | lockfile already consistent |
+| `pnpm security:audit` | 0 | no known vulnerabilities |
+| `pnpm secret-scan` | 0 | clean, 379 files |
+| `pnpm web:lint-copy` | 0 | clean |
+| `pnpm db:test:prepare` | 0 | guarded `tozalist_test` recreated |
+| `pnpm --filter @tozalist/worker build` | 0 | clean |
+| `pnpm --filter @tozalist/worker typecheck` | 0 | clean |
+| `pnpm --filter @tozalist/worker test` | 0 | **60/60** |
+| `pnpm -r test` | 0 | **625/625 workspace tests** |
+| `pnpm lint` | 0 | clean |
+| `pnpm format:check` | 0 | clean |
+| `git diff --check` | 0 | clean |
+
+The pre-existing 1k-versus-50k streaming memory test passes. No package
+manifest, dependency, lockfile, schema, migration, deployment, SMTP, payment,
+or Phase 9 file changed. The six-path worktree is unstaged, uncommitted, and
+unpushed at implementation-report time.
+
+---
+
+## Prior Step 8.4 report
+
+## Git handoff addendum — 2026-08-26
+
+- Commit: `1af38f7d2927f50627ee2d18443777e3ff01c532` — `security: upgrade Fastify and Drizzle`.
+- Parent/base: `91ce3ae7d5ddd6543d308d78c6c8110ec1222a66`, matching `origin/main` at handoff.
+- Exact scope: commit contains exactly the 29 paths authorized in the newest `PM-DECISION.md` record.
+- Remote branch: `origin/feat/backend-dependency-security` points to `1af38f7d2927f50627ee2d18443777e3ff01c532`; `origin/main` remains untouched at `91ce3ae7d5ddd6543d308d78c6c8110ec1222a66`.
+- Draft PR: [#8 — Release gate: remediate backend dependency advisories](https://github.com/azakapro/tozalist/pull/8), base `main`, head `feat/backend-dependency-security`, open, draft, and unmerged.
+- Remote CI: `PASS` — push run `32981390832` and pull-request run `32981433826` both completed successfully on `1af38f7d2927f50627ee2d18443777e3ff01c532`.
+- Orchestration note: Claude Code created and verified the exact commit. Its non-interactive network permission boundary stopped before push, so Codex executed only the already-approved mechanical feature-branch push and exact draft-PR creation. No merge, deployment, `main` mutation, or next-step work occurred.
 
 ## Step and outcome
 
 **Correction cycle.** The PM's `CORRECTION_REQUIRED` review (2026-08-26) raised three items; all three are applied and re-verified below (see *PM corrections applied*). Original scope unchanged otherwise.
 
-Step `8.4` implemented and verified on the fresh branch `feat/backend-dependency-security`, created from fetched `origin/main` at `91ce3ae7d5ddd6543d308d78c6c8110ec1222a66`. All four recorded high-severity production advisories are **cleared**: Fastify is on exact-pinned **5.12.1**, its plugin set on Fastify-5-compatible exact pins, and `drizzle-orm` on **0.45.2** — with `find-my-way` **9.9.0** and `@fastify/static` **10.1.3** resolving naturally through the plugin chain (no override, resolution, or forced transitive pin). `pnpm security:audit` reports **"No known vulnerabilities found"** and is wired as a blocking CI step. Local-only, uncommitted: **no commit, push, PR, merge, deploy, or Phase 9 work**. No schema or migration changed.
+Step `8.4` implemented and verified on the fresh branch `feat/backend-dependency-security`, created from fetched `origin/main` at `91ce3ae7d5ddd6543d308d78c6c8110ec1222a66`. All four recorded high-severity production advisories are **cleared**: Fastify is on exact-pinned **5.12.1**, its plugin set on Fastify-5-compatible exact pins, and `drizzle-orm` on **0.45.2** — with `find-my-way` **9.9.0** and `@fastify/static` **10.1.3** resolving naturally through the plugin chain (no override, resolution, or forced transitive pin). `pnpm security:audit` reports **"No known vulnerabilities found"** and is wired as a blocking CI step. The implementation was initially reported locally and uncommitted; the later PM-approved Git handoff is recorded above. No merge, deploy, Phase 9 work, schema change, or migration change occurred.
 
 ## Pre-flight (recorded)
 
