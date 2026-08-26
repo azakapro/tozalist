@@ -36,6 +36,24 @@ import {
 const NOW_MS = Date.parse('2026-08-25T12:00:00.000Z')
 const DAY_MS = 24 * 60 * 60 * 1000
 
+/**
+ * Two different clocks are in play, and row fixtures must use the real one.
+ *
+ * NOW_MS is the app's INJECTED clock: it drives sessions, MFA codes and the
+ * signed-link TTLs, which read `clock()` and are asserted against NOW_MS.
+ *
+ * Row expiry is different. The `/v1` DELETE routes call
+ * `deleteEmailCheckForOrg` / `deletePhoneCheckForOrg` WITHOUT passing a clock,
+ * so those DB helpers compare `expires_at` against the real `new Date()`.
+ * Anchoring a "live" row to the fixed NOW_MS therefore makes it genuinely
+ * expire once wall-clock time passes that constant - the fixture rots.
+ *
+ * So: live rows are anchored to the REAL clock (always in the future) and
+ * expired rows to the real past (always behind it). Both stay correct at any
+ * future run date, with no fixed calendar dependency.
+ */
+const rowExpiry = (days: number): Date => new Date(Date.now() + days * DAY_MS)
+
 function unzipNames(buffer: Buffer): Promise<Map<string, string>> {
   return new Promise((resolve, reject) => {
     const entries = new Map<string, string>()
@@ -123,7 +141,8 @@ describe.skipIf(!hasIntegrationEnv)('lifecycle endpoints (integration)', () => {
         emailNormalized: `person-${randomUUID().slice(0, 8)}@example.com`,
         emailHash: `hash-${randomUUID()}`,
         verdict: 'valid',
-        expiresAt: new Date(NOW_MS + expiresInDays * DAY_MS),
+        // Real clock: the DELETE route does not inject one (see rowExpiry).
+        expiresAt: rowExpiry(expiresInDays),
       })
       .returning({ id: emailChecks.id })
       .then((rows) => {
@@ -173,7 +192,8 @@ describe.skipIf(!hasIntegrationEnv)('lifecycle endpoints (integration)', () => {
         e164: '+998901234567',
         inputHash: `hash-${randomUUID()}`,
         valid: true,
-        expiresAt: new Date(NOW_MS + DAY_MS),
+        // Real clock: the DELETE route does not inject one (see rowExpiry).
+        expiresAt: rowExpiry(30),
       })
       .returning({ id: phoneChecks.id })
     if (phone === undefined) throw new Error('seed failed')
@@ -255,14 +275,14 @@ describe.skipIf(!hasIntegrationEnv)('lifecycle endpoints (integration)', () => {
       emailNormalized: email,
       emailHash: `hash-${randomUUID()}`,
       verdict: 'risky',
-      expiresAt: new Date(NOW_MS + 30 * DAY_MS),
+      expiresAt: rowExpiry(30),
     })
     await db.insert(phoneChecks).values({
       orgId,
       e164: '+998907654321',
       inputHash: `hash-${randomUUID()}`,
       valid: true,
-      expiresAt: new Date(NOW_MS + 30 * DAY_MS),
+      expiresAt: rowExpiry(30),
     })
     const batchId = randomUUID()
     const batchKey = `org/${orgId}/batches/${batchId}/input.csv`
@@ -272,7 +292,7 @@ describe.skipIf(!hasIntegrationEnv)('lifecycle endpoints (integration)', () => {
       orgId,
       filename: 'subscribers.csv',
       inputObjectKey: batchKey,
-      expiresAt: new Date(NOW_MS + 30 * DAY_MS),
+      expiresAt: rowExpiry(30),
     })
     await grantCredits(db, orgId, 100)
     return { email, batchKey }

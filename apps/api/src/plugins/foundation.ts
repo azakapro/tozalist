@@ -23,12 +23,22 @@ export const foundationPlugin = fp(async (app: FastifyInstance) => {
   })
 
   app.setErrorHandler((error, request, reply) => {
-    const code = classifyError(error)
+    // Fastify 5 types the handled error as unknown; narrow it safely without
+    // trusting any foreign fields beyond the shape classifyError reads.
+    const known = (typeof error === 'object' && error !== null ? error : {}) as {
+      statusCode?: number
+      code?: string
+      name?: string
+    }
+    const code = classifyError(known)
 
     if (code === 'INTERNAL_ERROR') {
       // The raw error goes to logs only - and even there just its name, since
       // foreign messages can carry request data.
-      request.log.error({ request_id: request.id, error_name: error.name }, 'unhandled error')
+      request.log.error(
+        { request_id: request.id, error_name: known.name ?? 'Error' },
+        'unhandled error',
+      )
     }
 
     return sendError(reply, code, DEFAULT_MESSAGES[code])

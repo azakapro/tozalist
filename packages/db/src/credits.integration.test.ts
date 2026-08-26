@@ -3,8 +3,33 @@ import type postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { DatabaseClient } from './client.js'
 import { getCreditBalance } from './credits.js'
+import { errorChainMentions } from './errors.js'
 import { creditLedger, organizations } from './schema/index.js'
 import { connectToTestDatabase, hasTestDatabase, uniqueOrgName } from './test/support.js'
+
+/**
+ * drizzle-orm >= 0.39 wraps driver errors, so the trigger's RAISE text and the
+ * constraint name live on the cause chain. Assert BOTH that the operation was
+ * rejected AND that the expected database guarantee is the reason - the same
+ * guarantee as before, followed to where the ORM now puts it.
+ */
+async function expectRejectedBecause(
+  operation: Promise<unknown> | (() => Promise<unknown>),
+  needle: RegExp,
+): Promise<void> {
+  let caught: unknown
+  let rejected = false
+  try {
+    await (typeof operation === 'function' ? operation() : operation)
+  } catch (error) {
+    rejected = true
+    caught = error
+  }
+  expect(rejected, 'operation must be rejected').toBe(true)
+  expect(errorChainMentions(caught, needle), `rejection reason must match ${String(needle)}`).toBe(
+    true,
+  )
+}
 
 describe.skipIf(!hasTestDatabase)('credit ledger', () => {
   let db: DatabaseClient
@@ -65,15 +90,17 @@ describe.skipIf(!hasTestDatabase)('credit ledger', () => {
   })
 
   it('rejects updates', async () => {
-    await expect(
+    await expectRejectedBecause(
       db.update(creditLedger).set({ delta: 999_999 }).where(eq(creditLedger.orgId, orgId)),
-    ).rejects.toThrow(/append-only/i)
+      /append-only/i,
+    )
 
     expect(await getCreditBalance(db, orgId)).toBe(9770)
   })
 
   it('rejects deletes', async () => {
-    await expect(db.delete(creditLedger).where(eq(creditLedger.orgId, orgId))).rejects.toThrow(
+    await expectRejectedBecause(
+      db.delete(creditLedger).where(eq(creditLedger.orgId, orgId)),
       /append-only/i,
     )
 
@@ -81,7 +108,7 @@ describe.skipIf(!hasTestDatabase)('credit ledger', () => {
   })
 
   it('rejects truncate, which row triggers would miss', async () => {
-    await expect(raw.unsafe('truncate table credit_ledger')).rejects.toThrow(/append-only/i)
+    await expectRejectedBecause(raw.unsafe('truncate table credit_ledger'), /append-only/i)
   })
 
   it('rejects a second entry reusing the same reference', async () => {
@@ -94,14 +121,15 @@ describe.skipIf(!hasTestDatabase)('credit ledger', () => {
       referenceId: reference,
     })
 
-    await expect(
+    await expectRejectedBecause(
       db.insert(creditLedger).values({
         orgId,
         delta: 100,
         reason: 'grant',
         referenceId: reference,
       }),
-    ).rejects.toThrow(/credit_ledger_org_id_reference_id_uniq/)
+      /credit_ledger_org_id_reference_id_uniq/,
+    )
 
     expect(await getCreditBalance(db, orgId)).toBe(9870)
   })

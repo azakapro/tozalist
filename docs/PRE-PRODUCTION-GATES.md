@@ -44,26 +44,37 @@ None of these are authorized inside Phase 8 implementation work.
 
 ## 5. Backend dependency-security remediation (high-severity advisories)
 
-- **Status:** BLOCKING, not yet scheduled.
-- **Problem:** an independent `pnpm audit --prod --audit-level=high` on the
-  current lockfile (recorded during the Step 8.3 framework upgrade, 2026-08-26)
-  found four pre-existing high-severity production-dependency advisories in the
-  Fastify/Drizzle backend chain. They were **not** introduced by the
-  Next.js/React upgrade:
-  - `fastify@4.29.1` — Content-Type `tab` body-validation bypass;
-    advisory `GHSA-jx2c-rxcm-jvmq`; patched only in Fastify `>=5.7.2`.
-  - `drizzle-orm@0.38.4` — improperly escaped SQL identifier injection;
-    advisory `GHSA-gpj5-g38j-94v9`; patched in `>=0.45.2`.
-  - `find-my-way@8.2.2` (via Fastify) — HTTP/2 denial of service;
-    advisory `GHSA-c96f-x56v-gq3h`; patched in `>=9.7.0`.
-  - `@fastify/static@6.12.0` (via Swagger UI) — route-guard bypass /
-    path traversal; advisory `GHSA-83w8-p2f5-377r`; patched in `>=10.1.1`.
-- **Required before launch:** the product owner approves a separate backend
-  dependency-security remediation plan covering a compatible **Fastify 5**
-  migration, a **Drizzle** upgrade, and compatible **Swagger UI / @fastify/static
-  / find-my-way (router)** updates. That work package needs its own security
-  review, the full integration regression suite, remote CI, and a draft PR — it
-  is a separate approved step, not part of the framework upgrade. No versions
-  are chosen and no dependency is edited here; this is a release gate, not a fix.
-- **Sources:** GitHub Security Advisories `GHSA-jx2c-rxcm-jvmq`,
-  `GHSA-gpj5-g38j-94v9`, `GHSA-c96f-x56v-gq3h`, `GHSA-83w8-p2f5-377r`.
+- **Status:** REMEDIATED (Step 8.4, 2026-08-26) — pending PM review and a later
+  authorized push/merge. Remote CI on this work is `NOT_RUN`.
+- **What was vulnerable:** four high-severity production advisories in the
+  Fastify/Drizzle chain, recorded during Step 8.3.
+- **Resolved patched versions now in the production tree:**
+
+  | Package                            | Before | After      | Advisory cleared                         |
+  | ---------------------------------- | ------ | ---------- | ---------------------------------------- |
+  | `fastify`                          | 4.29.1 | **5.12.1** | `GHSA-jx2c-rxcm-jvmq` (patched >=5.7.2)  |
+  | `drizzle-orm`                      | 0.38.4 | **0.45.2** | `GHSA-gpj5-g38j-94v9` (patched >=0.45.2) |
+  | `find-my-way` (via Fastify)        | 8.2.2  | **9.9.0**  | `GHSA-c96f-x56v-gq3h` (patched >=9.7.0)  |
+  | `@fastify/static` (via Swagger UI) | 6.12.0 | **10.1.3** | `GHSA-83w8-p2f5-377r` (patched >=10.1.1) |
+
+  Supporting plugins upgraded to Fastify-5-compatible exact pins:
+  `@fastify/cookie` 11.1.2, `@fastify/helmet` 13.1.1, `@fastify/multipart`
+  10.1.1, `@fastify/swagger` 9.8.1, `@fastify/swagger-ui` 6.1.1,
+  `fastify-plugin` 6.0.0. No pnpm override, resolution, or forced transitive
+  pin was used; every version resolves through normal plugin compatibility.
+
+- **Production-audit result:** `pnpm security:audit`
+  (`pnpm audit --prod --audit-level=high`) exits 0 with **"No known
+  vulnerabilities found"**. All four advisory IDs above are absent from the
+  resolved production tree, and the lockfile contains no reference to the
+  vulnerable versions. The audit is wired as a **blocking** CI step; no
+  ignore list, suppression, allowlist, or severity downgrade is used.
+- **Test totals:** 624 workspace tests (core 186, shared 69, db 71, api 179,
+  worker 59, dashboard 32, web 28) + 5 tooling-script tests, all passing,
+  including 10 new Fastify-5/Drizzle security regressions. The accuracy
+  corpus remains 500/500. No schema or migration changed.
+
+**Still open — this gate does not clear the others.** Lighthouse (#2),
+batch-result CSV formula hardening (#3), the metrics deployment configuration
+(#4), and the Uzbekistan-qualified legal review remain blocking before any
+Phase 9 deployment or public beta.

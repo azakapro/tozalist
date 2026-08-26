@@ -91,14 +91,28 @@ describe.skipIf(!hasIntegrationEnv)('openapi documentation', () => {
   })
 
   it('serves /docs publicly', async () => {
-    // The UI entry redirects to its static index; the chain stays public.
+    // @fastify/swagger-ui 6 serves the UI index directly at /docs (200 HTML)
+    // instead of the old 302-to-static/index.html chain; legacy static/index
+    // requests now redirect back into the UI. The surface stays public and
+    // the UI must actually render.
     const entry = await app.inject({ method: 'GET', url: '/docs' })
-    expect(entry.statusCode).toBe(302)
-    expect(String(entry.headers.location)).toContain('static/index.html')
+    expect(entry.statusCode).toBe(200)
+    expect(String(entry.headers['content-type'])).toContain('text/html')
+    expect(entry.body.toLowerCase()).toContain('swagger')
 
-    const index = await app.inject({ method: 'GET', url: '/docs/static/index.html' })
-    expect(index.statusCode).toBe(200)
-    expect(index.body.toLowerCase()).toContain('swagger')
+    // The legacy static/index.html path is CANONICALIZED to /docs/ by
+    // swagger-ui 6 (a 302 with an empty body) - it is not a file read and
+    // discloses nothing. Traversal is separately proven blocked in
+    // fastify5-security.integration.test.ts.
+    const legacyIndex = await app.inject({ method: 'GET', url: '/docs/static/index.html' })
+    expect(legacyIndex.statusCode).toBe(302)
+    expect(String(legacyIndex.headers.location)).toBe('/docs/')
+    expect(legacyIndex.body).toBe('')
+
+    // The bundled UI assets still serve from within the /docs prefix.
+    const assets = await app.inject({ method: 'GET', url: '/docs/static/swagger-ui.css' })
+    expect(assets.statusCode).toBe(200)
+    expect(String(assets.headers['content-type'])).toContain('text/css')
   })
 
   // --- 2. metaschema validation ---------------------------------------------------
