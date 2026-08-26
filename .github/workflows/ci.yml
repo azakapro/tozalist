@@ -73,6 +73,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Production dependency audit (blocking)
+        run: pnpm security:audit
+
       - name: Secret scan
         run: pnpm secret-scan
 

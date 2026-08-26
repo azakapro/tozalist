@@ -1,6 +1,7 @@
 import { and, asc, count, eq, gte, isNull, lt, lte, sql as rawSql, sum } from 'drizzle-orm'
 import type { DatabaseClient, DatabaseExecutor } from './client.js'
 import { recordAuditEvent } from './api-keys.js'
+import { errorChainMentions } from './errors.js'
 import { sha256Hex } from './crypto.js'
 import { creditLedger, invoiceRequests, organizations } from './schema/index.js'
 import type { CreditLedgerEntry } from './schema/index.js'
@@ -89,7 +90,10 @@ export async function grantCreditsWithAudit(
       return { ok: true, ledgerId: entry.id, referenceId } as const
     })
   } catch (error) {
-    if (error instanceof Error && /credit_ledger_org_id_reference_id_uniq/.test(error.message)) {
+    // drizzle-orm >=0.39 wraps database errors in DrizzleQueryError; the
+    // constraint name then lives on the CAUSE chain, not the top message.
+    // Walk the chain so replay detection survives the wrapper.
+    if (errorChainMentions(error, 'credit_ledger_org_id_reference_id_uniq')) {
       return { ok: false, reason: 'duplicate_reference' }
     }
     throw error

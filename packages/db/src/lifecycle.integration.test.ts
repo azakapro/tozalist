@@ -2,6 +2,7 @@ import type postgres from 'postgres'
 import { and, eq, sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { DatabaseClient } from './client.js'
+import { errorChainMentions } from './errors.js'
 import {
   deleteBatchesByIds,
   deleteRetiredOrganizations,
@@ -37,6 +38,22 @@ const NOW = new Date('2026-08-25T12:00:00.000Z')
 const DAY_MS = 24 * 60 * 60 * 1000
 const past = (days: number) => new Date(NOW.getTime() - days * DAY_MS)
 const future = (days: number) => new Date(NOW.getTime() + days * DAY_MS)
+
+/** Rejection + reason, looking through drizzle's wrapping (see errors.ts). */
+async function expectRejectedBecause(operation: Promise<unknown>, needle: RegExp): Promise<void> {
+  let caught: unknown
+  let rejected = false
+  try {
+    await operation
+  } catch (error) {
+    rejected = true
+    caught = error
+  }
+  expect(rejected, 'operation must be rejected').toBe(true)
+  expect(errorChainMentions(caught, needle), `rejection reason must match ${String(needle)}`).toBe(
+    true,
+  )
+}
 
 describe.skipIf(!hasTestDatabase)('data lifecycle', () => {
   let db: DatabaseClient
@@ -395,18 +412,22 @@ describe.skipIf(!hasTestDatabase)('data lifecycle', () => {
     ])
 
     // An ordinary application DELETE stays blocked even for the old row.
-    await expect(db.delete(creditLedger).where(eq(creditLedger.orgId, orgId))).rejects.toThrow(
+    // drizzle >= 0.39 wraps driver errors, so the trigger's RAISE text is on
+    // the cause chain; assert rejection AND that append-only is the reason.
+    await expectRejectedBecause(
+      db.delete(creditLedger).where(eq(creditLedger.orgId, orgId)),
       /append-only/,
     )
     // And the flag alone cannot touch young rows: the trigger re-checks age.
-    await expect(
+    await expectRejectedBecause(
       db.transaction(async (tx) => {
         await tx.execute(sql`SET LOCAL tozalist.allow_ledger_purge = 'on'`)
         await tx
           .delete(creditLedger)
           .where(and(eq(creditLedger.orgId, orgId), eq(creditLedger.delta, 30)))
       }),
-    ).rejects.toThrow(/append-only/)
+      /append-only/,
+    )
 
     const purged = await purgeExpiredLedgerEntries(db, LEDGER_NOW)
     expect(purged).toBeGreaterThanOrEqual(1)

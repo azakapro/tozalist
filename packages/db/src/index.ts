@@ -154,3 +154,4 @@ export {
   type GrantResult,
   type MonthlyStatement,
 } from './billing.js'
+export { errorChainMentions, flattenErrorChain } from './errors.js'

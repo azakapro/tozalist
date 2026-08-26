@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { redactedLoggerOptions } from '@tozalist/shared'
-import Fastify, { type FastifyInstance } from 'fastify'
+import Fastify, { LogController, type FastifyInstance } from 'fastify'
 import type { FastifyBaseLogger } from 'fastify'
 import type { Redis } from 'ioredis'
 import type { DatabaseClient } from '@tozalist/db'
@@ -9,6 +9,7 @@ import { BalanceCache } from './balance-cache.js'
 import { publicLeadRoutes } from './routes/public-leads.js'
 import { openapiPlugin } from './openapi/plugin.js'
 import { healthOperation } from './openapi/operations.js'
+import { DEFAULT_MESSAGES, sendError, type ErrorCode } from './errors.js'
 import { foundationPlugin } from './plugins/foundation.js'
 import { securityHeaders } from './plugins/security-headers.js'
 import { metricsPlugin } from './plugins/metrics.js'
@@ -98,8 +99,27 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     },
     // A fresh UUID per request; the caller's X-Request-Id is never trusted.
     genReqId: () => randomUUID(),
-    requestIdLogLabel: 'request_id',
-    disableRequestLogging: true,
+    // Fastify 5 moved `disableRequestLogging` and `requestIdLogLabel` off the
+    // top level (FSTDEP023 / FSTDEP024) into the official LogController. Same
+    // behavior: the built-in per-request logging stays OFF because
+    // foundation.ts emits our own single redacted line, and the request id is
+    // still logged under `request_id`.
+    logController: new LogController({
+      disableRequestLogging: true,
+      requestIdLogLabel: 'request_id',
+    }),
+    // Fastify 5 answers framework-level failures (malformed URL, bad
+    // content-type, oversized body) BEFORE the route error handler, and its
+    // default reply is not our envelope. Route them through sendError so the
+    // universal `{error:{code,message,request_id}}` contract holds on every
+    // response, exactly as it did under Fastify 4.
+    frameworkErrors: (error, request, reply) => {
+      const code = classifyFrameworkError(error)
+      if (code === 'INTERNAL_ERROR') {
+        request.log.error({ request_id: request.id, error_name: error.name }, 'framework error')
+      }
+      void sendError(reply, code, DEFAULT_MESSAGES[code])
+    },
   })
 
   const routeObserver = options.deps?.routeObserver
@@ -263,6 +283,24 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   }
 
   return app
+}
+
+/**
+ * Maps a Fastify framework-level error to our public error code. Mirrors the
+ * route-level classifier: 4xx framework failures are client errors, anything
+ * else is INTERNAL_ERROR. No foreign message text is ever surfaced.
+ */
+function classifyFrameworkError(error: { statusCode?: number; code?: string }): ErrorCode {
+  if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE' || error.statusCode === 413) {
+    return 'PAYLOAD_TOO_LARGE'
+  }
+  if (error.statusCode === 429) return 'RATE_LIMITED'
+  if (error.statusCode === 401) return 'UNAUTHORIZED'
+  if (error.statusCode === 404) return 'NOT_FOUND'
+  if (error.statusCode !== undefined && error.statusCode >= 400 && error.statusCode < 500) {
+    return 'VALIDATION_ERROR'
+  }
+  return 'INTERNAL_ERROR'
 }
 
 function buildLoggerOptions(
