@@ -40,7 +40,7 @@ export default tseslint.config(
   },
   {
     // Plain Node scripts (build gates, tooling) use Node globals directly.
-    files: ['**/scripts/**/*.mjs'],
+    files: ['**/scripts/**/*.mjs', 'bench/**/*.mjs', '**/next.config.mjs'],
     languageOptions: {
       globals: { process: 'readonly', console: 'readonly' },
     },

@@ -1,90 +1,88 @@
 # PM Decision
 
-## Review
+## Step 8.2 final review
 
-- Step ID: `7.2` — Pilot billing, including the authoritative manual-grant correction.
-- Baseline checked: `YES — all reviewed Step 7.2 work is local on feat/phase-7-lifecycle-billing above the synchronized Step 7.1 commit 17f9055.`
-- Scope checked: `PASS — the implementation remains invoice-and-ledger billing only. There is no Click/Payme/provider SDK, checkout, card processing, payment webhook, merchant credential, production action, or legal/privacy-policy change.`
-- Accounting correction: `PASS — grantCreditsWithAudit now validates a positive safe integer and canonical non-blank note before reference derivation or transaction work; invalid input returns only the fixed invalid_input token. Direct database tests prove negative, zero, fractional, non-finite, oversized, empty, and whitespace-only grants leave zero ledger and audit rows. Trimmed-note replays collide and the stored ledger note is canonical.`
-- Privacy and access control: `PASS — invoice creation is admin + MFA + CSRF gated; statement links are scoped to the authenticated organisation, expire after one hour, and their signed URLs are neither logged nor audited. Bank instructions remain environment-only and are absent from audit and log output. Invoice-request rows hold only organisation, requester, plan, and timestamps and are deleted with the organisation purge.`
-- Retention decision: `ACCEPTED FOR THIS STEP — before the DRAFT privacy policy is finalized, its data map must explicitly cover invoice-request records and their organisation-lifetime retention. This approval does not authorize any legal-copy change.`
-- Plan and statement evidence: `PASS — the three pilot plans are one client-safe core configuration used by both public-web and dashboard rendering; statement boundaries are [start, end), ledger notes are HTML-escaped, statements delete with the organisation prefix, and a test prevents payment-provider dependencies.`
-- Verification independently rerun by PM: `PASS — pnpm -r build; pnpm -r test (569 tests: core 177, shared 48, db 71, api 160, worker 55, dashboard 32, web 26); pnpm lint; pnpm -r typecheck; pnpm format:check after build; and git diff --check.`
-- Database-preparation note: `A bare pnpm db:test:prepare in the PM shell reports DATABASE_URL_TEST is not exported. The full test run did execute all 71 database tests, including the direct billing integration tests, against the isolated test setup; the CTO separately reports migration preparation passed. This local shell-environment gap does not change the reviewed application behavior, but deployment/CI must provide DATABASE_URL_TEST explicitly wherever that standalone preparation script is used.`
+- Step ID: `8.2` — Accuracy regression corpus.
+- Acceptance: `PASS — exactly 500 deterministic synthetic fixtures; every fixture self-identifies the evaluated stub address; genuine non-ASCII Unicode, punycode IDN, and long-address coverage; reserved .invalid/.test non-existent-domain cases; no DNS or engine/network access; 100% pass/fail regression gate using the real local aggregation pipeline; CI wired; documentation clearly limits the result to logic correctness.`
+- Evidence: `pnpm core:bench passes 500/500 with a diagonal verdict matrix and 100% precision/recall for every email reason code, and exits non-zero when a label is deliberately corrupted. Independent PM verification passed pnpm -r test: 612 workspace tests (core 186, shared 69, db 71, api 169, worker 59, dashboard 32, web 26); secret scan, copy lint, build, lint, typecheck, tooling tests, format-after-build, and diff check also passed. The standalone DB-preparation command requires DATABASE_URL_TEST, which is intentionally absent in this PM shell; the integration suite and CI define it.`
+- Scope, privacy, accounting, and retention: `PASS — corpus data is synthetic and stub-only. No customer data, payment, ledger, retention, deployment, SMTP, or legal-policy behavior changed. tsx is a dev-only MIT dependency with a verbatim license record. Bench code is typechecked/tested but excluded from product dist.`
 
 ## Decision
 
 - Decision: `APPROVED`
-- Rationale: `The focused accounting defect is corrected at the authoritative database boundary, the direct regression evidence is meaningful, and Step 7.2 meets its roadmap acceptance criteria. Together with synchronized Step 7.1, Phase 7 is ready for its single draft pull-request handoff.`
+- Rationale: `Step 8.2 meets both roadmap acceptance criteria and the focused corrections. Phase 8 is now locally complete. The final branch sync and its one draft PR are authorized; GitHub Actions must pass before the product owner manually merges.`
 
-## Explicit Phase 7 Git sync authorization
+## Explicit final Phase 8 Git handoff
 
-Claude Code may perform this handoff only. Do not edit product code, begin Step 8.1, merge, deploy, process real data, add a payment provider, or change legal/privacy policy.
+Remain on `feat/phase-8-hardening`. Perform only this handoff; do not begin Phase 9.
 
-1. On `feat/phase-7-lifecycle-billing`, verify the working tree contains exactly these reviewed Step 7.2 paths before staging:
+1. Before staging, confirm the working-tree change set is exactly these sixteen paths:
 
-   - `.env.example`
-   - `TODO-PAYMENTS.md`
-   - `apps/api/package.json`
-   - `apps/api/src/app.ts`
-   - `apps/api/src/billing.integration.test.ts`
-   - `apps/api/src/billing/statement-html.ts`
-   - `apps/api/src/cli/billing-grant.ts`
-   - `apps/api/src/cli/billing-statement.ts`
-   - `apps/api/src/config.ts`
-   - `apps/api/src/internal/billing.ts`
-   - `apps/api/src/no-payment-provider.test.ts`
-   - `apps/dashboard/app/billing/page.tsx`
-   - `apps/dashboard/lib/messages.ts`
-   - `apps/dashboard/lib/shell.tsx`
-   - `apps/dashboard/package.json`
-   - `apps/dashboard/tests/billing.test.tsx`
-   - `apps/web/app/[locale]/page.tsx`
-   - `apps/web/lib/messages.ts`
-   - `apps/web/tests/pricing-plans.test.tsx`
-   - `apps/worker/src/lifecycle/lifecycle.integration.test.ts`
+   - `.github/workflows/ci.yml`
+   - `THIRD_PARTY_LICENSES/tsx-MIT.txt`
    - `docs/agent-loop/CTO-REPORT.md`
    - `docs/agent-loop/PM-DECISION.md`
    - `docs/agent-loop/STATE.md`
    - `package.json`
-   - `packages/core/src/index.ts`
-   - `packages/core/src/plans.test.ts`
-   - `packages/core/src/plans.ts`
-   - `packages/db/drizzle/0007_colossal_bushwacker.sql`
-   - `packages/db/drizzle/meta/0007_snapshot.json`
-   - `packages/db/drizzle/meta/_journal.json`
-   - `packages/db/src/billing.integration.test.ts`
-   - `packages/db/src/billing.ts`
-   - `packages/db/src/index.ts`
-   - `packages/db/src/lifecycle.ts`
-   - `packages/db/src/schema/index.ts`
-   - `packages/db/src/schema/invoice-requests.ts`
-   - `packages/shared/src/index.ts`
-   - `packages/shared/src/s3.ts`
+   - `packages/core/bench/README.md`
+   - `packages/core/bench/corpus.test.ts`
+   - `packages/core/bench/corpus.ts`
+   - `packages/core/bench/run.ts`
+   - `packages/core/bench/score.ts`
+   - `packages/core/package.json`
+   - `packages/core/tsconfig.build.json`
+   - `packages/core/tsconfig.json`
+   - `packages/core/vitest.config.ts`
    - `pnpm-lock.yaml`
 
-   If the exact set differs, stop without staging or committing.
-2. Commit those paths in one atomic commit with this exact message: `billing: add invoice-based pilot billing`.
-3. Push only `feat/phase-7-lifecycle-billing` to `origin`. Do not push or modify `main`.
-4. Create one **draft** pull request from `feat/phase-7-lifecycle-billing` into `main`, titled `Phase 7: lifecycle controls and pilot billing`. Its body must summarize Steps 7.1–7.2, cite the 569-test verification, state that billing is invoice-and-ledger only with no payment provider, flag the DRAFT privacy-policy data-map prerequisite, and state that the product owner manually merges it.
-5. Record the resulting commit hash, remote branch, and PR URL in `CTO-REPORT.md`; set `STATE.md` to `awaiting_pm_review`, owner PM, with remote-handoff verification and product-owner merge as the next actions; then stop.
+2. Create one atomic commit containing exactly those reviewed paths with this exact message:
 
-## Explicit exceptional permissions
+   ```text
+   hardening: add accuracy regression corpus
+   ```
 
-- [x] Commit — scope: `Only the exact 39 reviewed Step 7.2 paths listed above, as one atomic commit on feat/phase-7-lifecycle-billing.`
-- [x] Push — scope: `Only feat/phase-7-lifecycle-billing to origin; never main.`
-- [x] Create draft pull request — scope: `One new draft PR from feat/phase-7-lifecycle-billing to main with the exact title above.`
-- [ ] Merge — scope: `Product owner only, manually in GitHub.`
-- [ ] Deploy — scope: `N/A`.
-- [ ] Delete material data — scope: `N/A — only isolated test fixtures/objects permitted during verification.`
-- [ ] Enable production SMTP — scope: `N/A`.
-- [ ] Process real customer data — scope: `N/A`.
-- [ ] Add a payment provider — scope: `N/A`.
-- [ ] Change legal/privacy policy — scope: `N/A`.
+3. Push only `feat/phase-8-hardening` to `origin`. Do not push or alter `main`.
+4. Create exactly one **draft** pull request into `main` after the push, with this exact title:
+
+   ```text
+   Phase 8: security hardening and accuracy regression gate
+   ```
+
+   Use this PR body:
+
+   ```md
+   ## Summary
+
+   - Step 8.1: logging redaction, request tracing, metrics, security headers, CORS boundaries, secret scanning, environment validation, endpoint fuzzing, load-test evidence, and GitHub Actions gates.
+   - Step 8.2: a deterministic 500-fixture synthetic email corpus, a fail-closed `pnpm core:bench` aggregation-regression gate, CI integration, and clear logic-correctness limitations.
+
+   ## Verification
+
+   - 612 workspace tests plus 5 tooling-script tests pass locally.
+   - `pnpm core:bench`: 500/500 exact matches, diagonal verdict matrix, 100% reason-code precision/recall; an intentionally corrupted label exits non-zero.
+   - Secret scan, copy lint, build, lint, typecheck, formatter, and whitespace checks pass locally.
+   - GitHub Actions on this final commit remains the required remote gate before merge.
+
+   ## Boundaries
+
+   - Corpus data is synthetic and stub-only; it does not query DNS, invoke the engine, or process customer data.
+   - Real-world deliverability accuracy is deferred to consented design-partner outcomes in Phase 9.2.
+   - Phase 9 remains blocked on the documented Next.js/React upgrade gate and Lighthouse deployment gate.
+
+   Manual merge by the product owner only.
+   ```
+
+5. Do not merge the PR. After the push and draft-PR creation, write the commit hash, remote branch, and PR URL into `CTO-REPORT.md`; set `STATE.md` to `awaiting_pm_review` with PM as owner and remote-CI/PR verification as the only next action; then stop. Those post-handoff relay-record edits remain uncommitted.
+
+## Boundaries and carry-forward gates
+
+- Do not commit or push anything beyond the sixteen authorized paths; do not merge, deploy, enable production SMTP, process real customer data, add a payment provider, delete material data, or change legal/privacy policy.
+- The product owner manually merges only after PM verifies the final GitHub Actions run and the draft PR.
+- The supported Next.js/React upgrade and Lighthouse remain blocking pre-production gates for Phase 9.
 
 ## State transition
 
 - State status: `ready_for_cto`
-- Current step: `7.2` (approved sync handoff only)
+- Current step: `8.2`
 - Owner: `Claude Code`
-- Next action: `Perform only the explicitly authorized Phase 7 commit, push, and draft-PR handoff; report and stop.`
+- Next action: `Perform only the authorized final Phase 8 commit, feature-branch push, and draft-PR handoff, then stop for PM remote verification.`

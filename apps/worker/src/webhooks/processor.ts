@@ -1,5 +1,6 @@
 import { DelayedError, type Job } from 'bullmq'
 import type pino from 'pino'
+import type { WorkerMetrics } from '../metrics.js'
 import {
   getDeliveryForProcessing,
   recordDeliveryAttempt,
@@ -40,6 +41,7 @@ export type WebhookProcessorDeps = {
   transport?: WebhookTransport
   resolver?: HostResolver
   clock?: () => number
+  metrics?: WorkerMetrics
 }
 
 type FailureCategory =
@@ -73,6 +75,7 @@ export function createWebhookProcessor(deps: WebhookProcessorDeps) {
 
       if (attemptNumber >= WEBHOOK_MAX_ATTEMPTS) {
         await recordDeliveryAttempt(deps.db, delivery.id, { kind: 'failed', record })
+        deps.metrics?.webhookDeliveries.inc({ outcome: 'failed' })
         deps.logger.warn({
           delivery_id: delivery.id,
           endpoint_id: endpoint.id,
@@ -86,6 +89,7 @@ export function createWebhookProcessor(deps: WebhookProcessorDeps) {
       const delayMs = WEBHOOK_RETRY_SCHEDULE_MS[attemptNumber - 1] ?? 0
       const nextRetryAt = new Date(clock() + delayMs)
       await recordDeliveryAttempt(deps.db, delivery.id, { kind: 'retry', nextRetryAt, record })
+      deps.metrics?.webhookDeliveries.inc({ outcome: 'retry_scheduled' })
       deps.logger.info({
         delivery_id: delivery.id,
         endpoint_id: endpoint.id,
@@ -149,6 +153,7 @@ export function createWebhookProcessor(deps: WebhookProcessorDeps) {
               status_code: result.statusCode,
             },
           })
+          deps.metrics?.webhookDeliveries.inc({ outcome: 'delivered' })
           deps.logger.info({
             delivery_id: delivery.id,
             endpoint_id: endpoint.id,

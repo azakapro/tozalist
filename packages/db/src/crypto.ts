@@ -21,7 +21,7 @@ export type GeneratedApiKey = {
   readonly keyPrefix: string
 }
 
-const BASE62_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+const BASE62_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz' // secret-scan: allow (base62 alphabet, not a secret)
 /** Random part of a key: 32 base62 characters (~190 bits of entropy). */
 export const API_KEY_RANDOM_LENGTH = 32
 

@@ -22,6 +22,8 @@ export type EngineTransportRequest = {
   /** Serialised JSON body. Contains the email; must never be logged. */
   body: string
   timeoutMs: number
+  /** Propagated API request id; forwarded as the X-Request-Id header. */
+  requestId?: string | undefined
 }
 
 export type EngineTransportResponse = {
@@ -53,7 +55,12 @@ export type EngineClientOptions = {
   breaker?: { failureThreshold?: number; openDurationMs?: number }
 }
 
-export type VerifyOptions = { smtp: boolean; catchAll: boolean }
+export type VerifyOptions = {
+  smtp: boolean
+  catchAll: boolean
+  /** Propagated API request id; sent as X-Request-Id for engine-side logs. */
+  requestId?: string | undefined
+}
 
 const NON_SMTP_TIMEOUT_MS = 5_000
 const SMTP_TIMEOUT_MS = 20_000
@@ -109,6 +116,7 @@ export class EngineClient {
       url: `${this.baseUrl}/verify`,
       body: JSON.stringify({ email, smtp: opts.smtp, catch_all: opts.catchAll }),
       timeoutMs: opts.smtp ? SMTP_TIMEOUT_MS : NON_SMTP_TIMEOUT_MS,
+      ...(opts.requestId !== undefined ? { requestId: opts.requestId } : {}),
     }
 
     let attempts = 0
@@ -256,7 +264,10 @@ const fetchTransport: EngineTransport = async (request) => {
   try {
     response = await fetch(request.url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(request.requestId !== undefined ? { 'X-Request-Id': request.requestId } : {}),
+      },
       body: request.body,
       signal: AbortSignal.timeout(request.timeoutMs),
     })

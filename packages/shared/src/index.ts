@@ -78,3 +78,14 @@ export {
   type WebhookEnvelope,
   type WebhookEvent,
 } from './webhooks.js'
+export {
+  REDACT_PATHS,
+  redactedLoggerOptions,
+  redactEmail,
+  redactEmailsInText,
+  redactError,
+  redactLogValue,
+  redactSecretsInText,
+} from './logging.js'
+export { Counter, Gauge, Histogram, MetricsRegistry } from './metrics.js'
+export { assertRequiredEnv } from './env.js'

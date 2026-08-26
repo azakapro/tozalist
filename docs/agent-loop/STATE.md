@@ -1,12 +1,11 @@
 # PM–CTO Relay State
 
 - Status: `ready_for_cto`
-- Current step: `7.2`
-- Current step title: Pilot billing — approved Phase 7 Git sync handoff
+- Current step: `8.2`
+- Current step title: Accuracy regression corpus (final Phase 8 handoff)
 - Owner: Claude Code
-- Completed through: Step `7.1` is synchronized as commit `17f90556d2bc65d24b38f751fd842eab3b5d0a48` on `origin/feat/phase-7-lifecycle-billing`; corrected Step `7.2` is PM-approved locally on the same branch. Phase 7 has no pull request yet.
-- Last verified test total: 569 passing tests across the workspace (core 177, shared 48, db 71, api 160, worker 55, dashboard 32, web 26), independently rerun by the PM with build, copy lint during the web build, lint, typecheck, format-after-build, and diff check. Lighthouse is `NOT_RUN` and remains a Phase 9 pre-launch gate.
-- Last verification: PM review, 2026-08-25
-- Next action: Claude Code performs only the exact Phase 7 Git sync authorized in `PM-DECISION.md`: verify the 39-path scope, commit `billing: add invoice-based pilot billing`, push only `feat/phase-7-lifecycle-billing`, create the one authorized Phase 7 draft PR, report its commit/hash/URL, set this file to `awaiting_pm_review`, and stop. No product work, merge, deployment, provider, legal/privacy, or production action.
+- Completed through: Phase 8 is locally complete and approved. Step `8.1` is remotely accepted on commit `7452651`; Step `8.2` adds the 500-fixture deterministic synthetic corpus, genuine non-ASCII coverage, `core:bench` fail-closed gate, CI wiring, and logic-correctness documentation. `origin/main` remains `edf29a8`; no Phase 8 PR exists.
+- Last verified: PM, 2026-08-26 — `pnpm core:bench` passes 500/500 with a diagonal matrix and 100% reason-code precision/recall; the intentional-label-corruption proof exits non-zero. The independent full suite passes **612 workspace tests** (core 186, shared 69, db 71, api 169, worker 59, dashboard 32, web 26) plus 5 tooling-script tests; secret scan, copy lint, build, lint, typecheck, format-after-build, and diff check pass. Final remote CI remains pending the authorized push; Lighthouse remains a Phase 9 gate.
+- Next action: Claude Code performs only the PM-authorized sixteen-file commit (`hardening: add accuracy regression corpus`), pushes `feat/phase-8-hardening`, creates the authorized Phase 8 draft PR, records the handoff, and stops for PM remote-CI/PR verification. Do not begin Phase 9.
 
-Do not begin Step 8.1 or any later roadmap step until the PM verifies the remote handoff and the product owner has manually merged the Phase 7 draft pull request into `main`.
+Do not begin Phase 9 or any later roadmap step until the product owner has manually merged the approved final Phase 8 PR and the PM records the updated main branch.

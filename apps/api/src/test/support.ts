@@ -120,20 +120,30 @@ export function stubEngine(
 }
 
 /** Queue stub: records enqueued IDs, or fails on demand. */
-export function stubQueue(
-  behavior: 'ok' | 'fail' = 'ok',
-): SmtpQueuePublisher & { jobs: string[]; closed: boolean } {
-  const state = { jobs: [] as string[], closed: false }
+export function stubQueue(behavior: 'ok' | 'fail' = 'ok'): SmtpQueuePublisher & {
+  jobs: string[]
+  calls: Array<{ emailCheckId: string; requestId?: string | undefined }>
+  closed: boolean
+} {
+  const state = {
+    jobs: [] as string[],
+    calls: [] as Array<{ emailCheckId: string; requestId?: string | undefined }>,
+    closed: false,
+  }
   return {
     get jobs() {
       return state.jobs
     },
+    get calls() {
+      return state.calls
+    },
     get closed() {
       return state.closed
     },
-    enqueue(emailCheckId: string) {
+    enqueue(emailCheckId: string, requestId?: string) {
       if (behavior === 'fail') return Promise.reject(new Error('queue backend unreachable'))
       state.jobs.push(emailCheckId)
+      state.calls.push({ emailCheckId, requestId })
       return Promise.resolve()
     },
     close() {

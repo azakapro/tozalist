@@ -158,7 +158,7 @@ export const batchRoutes = fp<BatchRouteOptions>(async (app: FastifyInstance, op
     }
 
     try {
-      await opts.batchQueue.enqueue(batchId)
+      await opts.batchQueue.enqueue(batchId, request.id)
     } catch (error) {
       // The reservation must not survive a batch that can never run.
       const { failBatch } = await import('@tozalist/db')

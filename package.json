@@ -5,12 +5,12 @@
   "description": "Consent-first email-list hygiene SaaS.",
   "packageManager": "pnpm@9.15.4",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.19.0"
   },
   "scripts": {
     "dev": "concurrently -n api,worker,dashboard,web -c blue,magenta,green,cyan \"pnpm --filter @tozalist/api dev\" \"pnpm --filter @tozalist/worker dev\" \"pnpm --filter @tozalist/dashboard dev\" \"pnpm --filter @tozalist/web dev\"",
     "build": "pnpm -r build",
-    "test": "pnpm -r test",
+    "test": "pnpm -r test && pnpm test:scripts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -24,11 +24,15 @@
     "api:revoke-key": "pnpm --filter @tozalist/api revoke-key",
     "web:lint-copy": "pnpm --filter @tozalist/web lint-copy",
     "billing:grant": "pnpm --filter @tozalist/api billing-grant",
-    "billing:statement": "pnpm --filter @tozalist/api billing-statement"
+    "billing:statement": "pnpm --filter @tozalist/api billing-statement",
+    "secret-scan": "node scripts/scan-secrets.mjs",
+    "test:scripts": "vitest run",
+    "core:bench": "pnpm --filter @tozalist/core bench"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
     "@types/node": "^20.17.12",
+    "autocannon": "^8.0.0",
     "concurrently": "^9.1.2",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^9.1.0",

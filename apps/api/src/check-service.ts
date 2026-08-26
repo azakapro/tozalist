@@ -12,6 +12,7 @@ import {
 } from '@tozalist/db'
 import { parseStoredEmailCheck, type SmtpStatus, type StoredEmailCheck } from '@tozalist/shared'
 import type { BalanceCache } from './balance-cache.js'
+import type { ApiMetrics } from './metrics.js'
 import type { EngineCaller, SmtpQueuePublisher } from './types.js'
 
 /**
@@ -27,6 +28,8 @@ export type CheckServiceDeps = {
   smtpQueue: SmtpQueuePublisher
   balanceCache: BalanceCache
   smtpEnabled: boolean
+  /** Optional Prometheus instruments; absent in unit tests. */
+  metrics?: ApiMetrics | undefined
 }
 
 export type EmailCheckOutcome =
@@ -46,7 +49,7 @@ export type EmailCheckOutcome =
 export async function performEmailCheck(
   deps: CheckServiceDeps,
   orgId: string,
-  input: { email: string; smtp: boolean },
+  input: { email: string; smtp: boolean; requestId?: string | undefined },
 ): Promise<EmailCheckOutcome> {
   const normalized = normalizeEmail(input.email).normalized ?? ''
   const emailHash = sha256Hex(normalized)
@@ -56,6 +59,7 @@ export async function performEmailCheck(
   if (balance < 1) return { kind: 'insufficient' }
 
   const cachedRow = await findRecentEmailCheck(deps.db, orgId, emailHash)
+  deps.metrics?.cacheEvents.inc({ result: cachedRow !== undefined ? 'hit' : 'miss' })
   if (cachedRow !== undefined) {
     const snapshot = parseStoredEmailCheck(cachedRow.checksJson)
     if (snapshot === null) return { kind: 'snapshot_unreadable' }
@@ -71,9 +75,18 @@ export async function performEmailCheck(
   }
 
   let engineResponse
+  const engineStarted = Date.now()
   try {
-    engineResponse = await deps.engine.verify(normalized, { smtp: false, catchAll: false })
+    engineResponse = await deps.engine.verify(normalized, {
+      smtp: false,
+      catchAll: false,
+      requestId: input.requestId,
+    })
+    deps.metrics?.engineDuration.observe({}, (Date.now() - engineStarted) / 1000)
+    deps.metrics?.engineCalls.inc({ outcome: 'ok' })
   } catch (error) {
+    deps.metrics?.engineDuration.observe({}, (Date.now() - engineStarted) / 1000)
+    deps.metrics?.engineCalls.inc({ outcome: 'error' })
     return { kind: 'engine_failed', errorName: error instanceof Error ? error.name : 'unknown' }
   }
 
@@ -116,13 +129,14 @@ export async function performEmailCheck(
   }
 
   await deps.balanceCache.set(orgId, result.balance)
+  deps.metrics?.creditsSpent.inc({ kind: 'single_check' })
 
   let smtpStatus: SmtpStatus = 'skipped'
   if (input.smtp && result.org.smtpEnabled && deps.smtpEnabled) {
     const pending: StoredEmailCheck = { ...snapshot, smtp_status: 'pending' }
     await updateEmailCheckSnapshot(deps.db, result.check.id, pending)
     try {
-      await deps.smtpQueue.enqueue(result.check.id)
+      await deps.smtpQueue.enqueue(result.check.id, input.requestId)
       smtpStatus = 'pending'
     } catch {
       await updateEmailCheckSnapshot(deps.db, result.check.id, snapshot)
@@ -145,7 +159,7 @@ export type PhoneCheckOutcome =
   { kind: 'insufficient' } | { kind: 'ok'; check: PhoneCheck; creditsRemaining: number }
 
 export async function performPhoneCheck(
-  deps: Pick<CheckServiceDeps, 'db' | 'balanceCache'>,
+  deps: Pick<CheckServiceDeps, 'db' | 'balanceCache' | 'metrics'>,
   orgId: string,
   input: { phone: string; country: string },
 ): Promise<PhoneCheckOutcome> {
@@ -164,6 +178,7 @@ export async function performPhoneCheck(
     return { kind: 'insufficient' }
   }
   await deps.balanceCache.set(orgId, debit.balance)
+  deps.metrics?.creditsSpent.inc({ kind: 'phone_check' })
   return { kind: 'ok', check: debit.check, creditsRemaining: debit.balance }
 }
 

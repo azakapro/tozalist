@@ -1,11 +1,25 @@
+import { Queue } from 'bullmq'
 import { Redis } from 'ioredis'
 import pino from 'pino'
 import { createClient } from '@tozalist/db'
-import { createObjectStorage, EngineClient, readS3Config } from '@tozalist/shared'
+import {
+  assertRequiredEnv,
+  createObjectStorage,
+  EngineClient,
+  readS3Config,
+  redactedLoggerOptions,
+} from '@tozalist/shared'
 import { buildConnectionOptions } from './connection.js'
 import { readWorkerConfig } from './config.js'
 import { buildBatchWorker } from './batch/worker.js'
 import { buildLifecycleWorker, scheduleLifecycleSweep } from './lifecycle/worker.js'
+import {
+  buildWorkerMetrics,
+  instrumentEngine,
+  instrumentWorker,
+  startMetricsServer,
+  trackQueueDepth,
+} from './metrics.js'
 import { buildWebhookPublisher, buildWebhookWorker } from './webhooks/worker.js'
 import { DomainCircuit } from './smtp/domain-circuit.js'
 import { MxThrottle } from './smtp/throttle.js'
@@ -18,7 +32,11 @@ import type { EngineVerifier } from './smtp/types.js'
  * Every log line is structured JSON. Job payloads carry only row IDs; emails
  * are loaded from PostgreSQL at processing time and never logged.
  */
-const logger = pino({ base: null })
+// Redaction is mandatory: secret-key censoring + deep email scrubbing.
+// Fail fast, listing every missing variable at once (roadmap 8.1).
+assertRequiredEnv(['DATABASE_URL', 'S3_ENDPOINT', 'S3_ACCESS_KEY', 'S3_SECRET_KEY', 'S3_BUCKET'])
+
+const logger = pino({ base: null, ...redactedLoggerOptions() })
 const config = readWorkerConfig()
 const connectionOptions = buildConnectionOptions(config.redisUrl)
 
@@ -28,10 +46,12 @@ const connectionOptions = buildConnectionOptions(config.redisUrl)
 const redis = new Redis({ ...connectionOptions, lazyConnect: true })
 const { db, sql } = createClient()
 
+const metrics = buildWorkerMetrics()
+
 let engine: EngineVerifier | undefined
 const getEngine = (): EngineVerifier => {
   // Instantiated on first use only: with SMTP disabled it never exists.
-  engine ??= new EngineClient()
+  engine ??= instrumentEngine(new EngineClient(), metrics)
   return engine
 }
 
@@ -57,7 +77,7 @@ const batchWorker = buildBatchWorker({
 
 const webhookWorker = buildWebhookWorker({
   connection: connectionOptions,
-  deps: { db, logger },
+  deps: { db, logger, metrics },
 })
 
 // Hourly retention sweep. Registration is idempotent across worker restarts.
@@ -77,8 +97,25 @@ const worker = buildSmtpWorker({
     logger,
     smtpEnabled: config.smtpEnabled,
     getEngine,
+    metrics,
   },
 })
+
+// Prometheus: job outcomes/durations per queue, queue depth at scrape time,
+// and the /metrics scrape server on its own local port.
+instrumentWorker(worker, 'smtp-probe', metrics)
+instrumentWorker(batchWorker, 'batch-process', metrics)
+instrumentWorker(webhookWorker, 'webhook-deliver', metrics)
+instrumentWorker(lifecycleWorker, 'lifecycle-purge', metrics)
+const depthQueues = ['smtp-probe', 'batch-process', 'webhook-deliver', 'lifecycle-purge'].map(
+  (name) => ({ name, queue: new Queue(name, { connection: connectionOptions }) }),
+)
+trackQueueDepth(metrics, depthQueues)
+const metricsServer = startMetricsServer(metrics.registry, config.metricsPort, config.metricsHost)
+logger.info(
+  { metrics_port: config.metricsPort, metrics_host: config.metricsHost },
+  'metrics server listening',
+)
 
 console.log('worker ready')
 logger.info(
@@ -98,6 +135,8 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
       await batchWorker.close().catch(() => undefined)
       await webhookWorker.close().catch(() => undefined)
       await lifecycleWorker.close().catch(() => undefined)
+      metricsServer.close()
+      await Promise.allSettled(depthQueues.map(({ queue }) => queue.close()))
       await webhookPublisher.close().catch(() => undefined)
       storage.close()
       await Promise.allSettled([redis.quit(), sql.end()])

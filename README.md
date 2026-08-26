@@ -40,7 +40,7 @@ tozalist/
 
 | Tool    | Version                                             |
 | ------- | --------------------------------------------------- |
-| Node.js | 20 or newer (see [`.nvmrc`](.nvmrc))                |
+| Node.js | 22.19.0 or newer (see [`.nvmrc`](.nvmrc))           |
 | pnpm    | 9 (`corepack enable`)                               |
 | Docker  | with Compose v2 (`docker compose`)                  |
 | Go      | 1.22+ — only if you build the engine outside Docker |

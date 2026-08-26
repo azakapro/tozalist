@@ -18,6 +18,13 @@ const REQUEST_ID_HEADER = {
 
 const BEARER_SECURITY = [{ bearerApiKey: [] }] as const
 
+/**
+ * Rejects ASCII control characters (NUL..US, DEL) in text inputs at the
+ * validation boundary: PostgreSQL refuses NUL in text values, and no
+ * legitimate email or phone contains control characters. Fuzz-proven.
+ */
+const NO_CONTROL_CHARS = '^[^\\u0000-\\u001f\\u007f]*$'
+
 function errorResponse(code: ErrorCode, description: string): Record<string, unknown> {
   return {
     description,
@@ -138,6 +145,7 @@ export const createEmailCheckOperation: ProductOperation = {
           type: 'string',
           minLength: 1,
           maxLength: 320,
+          pattern: NO_CONTROL_CHARS,
           description: 'The address to check. Normalization is applied server-side.',
         },
         smtp: {
@@ -226,7 +234,7 @@ export const createPhoneCheckOperation: ProductOperation = {
     body: {
       type: 'object',
       properties: {
-        phone: { type: 'string', minLength: 1, maxLength: 64 },
+        phone: { type: 'string', minLength: 1, maxLength: 64, pattern: NO_CONTROL_CHARS },
         country: {
           type: 'string',
           minLength: 2,

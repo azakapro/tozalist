@@ -13,6 +13,8 @@ export const SMTP_PROBE_QUEUE = 'smtp-probe'
 /** The whole job payload. Nothing personal crosses Redis. */
 export type SmtpProbeJobData = {
   emailCheckId: string
+  /** Originating API request id, propagated for cross-service tracing. */
+  requestId?: string
 }
 
 /** BullMQ queue name for batch CSV processing jobs. */
@@ -24,6 +26,8 @@ export const LIFECYCLE_PURGE_QUEUE = 'lifecycle-purge'
 /** Batch job payload: only the batch row's UUID crosses Redis. */
 export type BatchProcessJobData = {
   batchId: string
+  /** Originating API request id, propagated for cross-service tracing. */
+  requestId?: string
 }
 
 /**

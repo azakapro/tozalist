@@ -6,16 +6,16 @@ each other locally, and the one trust boundary that must not be crossed.
 
 ## Components
 
-| Component             | Path              | Runtime                 | Role                                                            |
-| --------------------- | ----------------- | ----------------------- | --------------------------------------------------------------- |
-| `@tozalist/web`       | `apps/web`        | Next.js 14 (App Router) | Public marketing surface. Placeholder page only.                |
-| `@tozalist/dashboard` | `apps/dashboard`  | Next.js 14 (App Router) | Authenticated customer surface. Placeholder page only.          |
-| `@tozalist/api`       | `apps/api`        | Fastify 4 (Node 20+)    | HTTP entrypoint for the product. Today: `GET /health`.          |
-| `@tozalist/worker`    | `apps/worker`     | Node 20+ / BullMQ       | Background process. Today: connects to Redis and idles.         |
-| `engine`              | `services/engine` | Go (own module)         | Internal validation engine. Today: placeholder process.         |
-| `@tozalist/core`      | `packages/core`   | TypeScript library      | Pure domain logic, no I/O. Today: `Result` primitive.           |
-| `@tozalist/shared`    | `packages/shared` | TypeScript library      | Types and constants shared across surfaces.                     |
-| `@tozalist/db`        | `packages/db`     | Drizzle + PostgreSQL    | Schema, migrations, client. See [data-model.md](data-model.md). |
+| Component             | Path              | Runtime                   | Role                                                            |
+| --------------------- | ----------------- | ------------------------- | --------------------------------------------------------------- |
+| `@tozalist/web`       | `apps/web`        | Next.js 14 (App Router)   | Public marketing surface. Placeholder page only.                |
+| `@tozalist/dashboard` | `apps/dashboard`  | Next.js 14 (App Router)   | Authenticated customer surface. Placeholder page only.          |
+| `@tozalist/api`       | `apps/api`        | Fastify 4 (Node 22.19.0+) | HTTP entrypoint for the product. Today: `GET /health`.          |
+| `@tozalist/worker`    | `apps/worker`     | Node 22.19.0+ / BullMQ    | Background process. Today: connects to Redis and idles.         |
+| `engine`              | `services/engine` | Go (own module)           | Internal validation engine. Today: placeholder process.         |
+| `@tozalist/core`      | `packages/core`   | TypeScript library        | Pure domain logic, no I/O. Today: `Result` primitive.           |
+| `@tozalist/shared`    | `packages/shared` | TypeScript library        | Types and constants shared across surfaces.                     |
+| `@tozalist/db`        | `packages/db`     | Drizzle + PostgreSQL      | Schema, migrations, client. See [data-model.md](data-model.md). |
 
 ### Infrastructure (Docker Compose)
 

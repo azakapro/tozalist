@@ -18,6 +18,7 @@ import {
 } from '../openapi/operations.js'
 import { renderEmailCheckData, renderMeta } from '../render.js'
 import type { EngineCaller, SmtpQueuePublisher } from '../types.js'
+import type { ApiMetrics } from '../metrics.js'
 
 export type EmailCheckRouteOptions = {
   db: DatabaseClient
@@ -25,6 +26,7 @@ export type EmailCheckRouteOptions = {
   smtpQueue: SmtpQueuePublisher
   balanceCache: BalanceCache
   smtpEnabled: boolean
+  metrics?: ApiMetrics
 }
 
 type CheckBody = { email: string; smtp?: boolean }
@@ -42,6 +44,7 @@ export const emailCheckRoutes = fp<EmailCheckRouteOptions>(async (app: FastifyIn
       const outcome = await performEmailCheck(deps, auth.orgId, {
         email: request.body.email,
         smtp: request.body.smtp === true,
+        requestId: request.id,
       })
 
       switch (outcome.kind) {

@@ -64,9 +64,14 @@ export const publicLeadRoutes = fp<PublicLeadsOptions>(async (app: FastifyInstan
         body: {
           type: 'object',
           properties: {
-            email: { type: 'string', minLength: 5, maxLength: 320 },
-            company: { type: 'string', maxLength: 200 },
-            phone: { type: 'string', maxLength: 64 },
+            email: {
+              type: 'string',
+              minLength: 5,
+              maxLength: 320,
+              pattern: '^[^\\u0000-\\u001f\\u007f]*$',
+            },
+            company: { type: 'string', maxLength: 200, pattern: '^[^\\u0000-\\u001f\\u007f]*$' },
+            phone: { type: 'string', maxLength: 64, pattern: '^[^\\u0000-\\u001f\\u007f]*$' },
             volume: { type: 'string', enum: [...VOLUME_RANGES] },
             message: { type: 'string', maxLength: 2000 },
             locale: { type: 'string', enum: ['uz', 'ru', 'en'] },

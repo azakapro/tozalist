@@ -25,8 +25,12 @@ export function createSmtpQueuePublisher(
   })
 
   return {
-    async enqueue(emailCheckId: string): Promise<void> {
-      await queue.add('probe', { emailCheckId }, { removeOnComplete: 1000, removeOnFail: 1000 })
+    async enqueue(emailCheckId: string, requestId?: string): Promise<void> {
+      await queue.add(
+        'probe',
+        { emailCheckId, ...(requestId !== undefined ? { requestId } : {}) },
+        { removeOnComplete: 1000, removeOnFail: 1000 },
+      )
     },
     async close(): Promise<void> {
       await queue.close()
@@ -44,8 +48,12 @@ export function createBatchQueuePublisher(
   })
 
   return {
-    async enqueue(batchId: string): Promise<void> {
-      await queue.add('process', { batchId }, { removeOnComplete: 1000, removeOnFail: 1000 })
+    async enqueue(batchId: string, requestId?: string): Promise<void> {
+      await queue.add(
+        'process',
+        { batchId, ...(requestId !== undefined ? { requestId } : {}) },
+        { removeOnComplete: 1000, removeOnFail: 1000 },
+      )
     },
     async close(): Promise<void> {
       await queue.close()
