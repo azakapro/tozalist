@@ -41,3 +41,29 @@ None of these are authorized inside Phase 8 implementation work.
 - Deployments must set a strong `METRICS_TOKEN` (API `/metrics` fails closed
   without it) and keep the worker scrape server on loopback unless a monitoring
   network is deliberately configured via `METRICS_HOST`.
+
+## 5. Backend dependency-security remediation (high-severity advisories)
+
+- **Status:** BLOCKING, not yet scheduled.
+- **Problem:** an independent `pnpm audit --prod --audit-level=high` on the
+  current lockfile (recorded during the Step 8.3 framework upgrade, 2026-08-26)
+  found four pre-existing high-severity production-dependency advisories in the
+  Fastify/Drizzle backend chain. They were **not** introduced by the
+  Next.js/React upgrade:
+  - `fastify@4.29.1` — Content-Type `tab` body-validation bypass;
+    advisory `GHSA-jx2c-rxcm-jvmq`; patched only in Fastify `>=5.7.2`.
+  - `drizzle-orm@0.38.4` — improperly escaped SQL identifier injection;
+    advisory `GHSA-gpj5-g38j-94v9`; patched in `>=0.45.2`.
+  - `find-my-way@8.2.2` (via Fastify) — HTTP/2 denial of service;
+    advisory `GHSA-c96f-x56v-gq3h`; patched in `>=9.7.0`.
+  - `@fastify/static@6.12.0` (via Swagger UI) — route-guard bypass /
+    path traversal; advisory `GHSA-83w8-p2f5-377r`; patched in `>=10.1.1`.
+- **Required before launch:** the product owner approves a separate backend
+  dependency-security remediation plan covering a compatible **Fastify 5**
+  migration, a **Drizzle** upgrade, and compatible **Swagger UI / @fastify/static
+  / find-my-way (router)** updates. That work package needs its own security
+  review, the full integration regression suite, remote CI, and a draft PR — it
+  is a separate approved step, not part of the framework upgrade. No versions
+  are chosen and no dependency is edited here; this is a release gate, not a fix.
+- **Sources:** GitHub Security Advisories `GHSA-jx2c-rxcm-jvmq`,
+  `GHSA-gpj5-g38j-94v9`, `GHSA-c96f-x56v-gq3h`, `GHSA-83w8-p2f5-377r`.

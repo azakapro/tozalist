@@ -7,3 +7,5 @@ services/engine
 packages/db/drizzle
 docs/agent-loop
 apps/web/generated
+# Next.js-generated, must not be edited (Next 16 reshaped these).
+**/next-env.d.ts

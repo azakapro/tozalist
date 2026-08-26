@@ -3,14 +3,7 @@ import { formatAmount, PLANS } from '@tozalist/core'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { LocaleSwitcher } from '../../lib/locale-switcher'
-import {
-  DEFAULT_LOCALE,
-  isLocale,
-  LOCALES,
-  t,
-  type Locale,
-  type MessageKey,
-} from '../../lib/messages'
+import { DEFAULT_LOCALE, isLocale, LOCALES, t, type MessageKey } from '../../lib/messages'
 import { PilotForm } from '../../lib/pilot-form'
 
 export const dynamic = 'force-static'
@@ -21,9 +14,13 @@ export function generateStaticParams() {
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://tozalist.uz'
 
-export function generateMetadata({ params }: { params: { locale: string } }): Metadata {
-  if (!isLocale(params.locale)) return {}
-  const locale = params.locale
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  if (!isLocale(locale)) return {}
   return {
     title: `${t(locale, 'site.name')} — ${t(locale, 'site.tagline')}`,
     description: t(locale, 'hero.subtitle'),
@@ -45,9 +42,9 @@ export function generateMetadata({ params }: { params: { locale: string } }): Me
   }
 }
 
-export default function LandingPage({ params }: { params: { locale: string } }) {
-  if (!isLocale(params.locale)) notFound()
-  const locale: Locale = params.locale
+export default async function LandingPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params
+  if (!isLocale(locale)) notFound()
   const m = (key: MessageKey) => t(locale, key)
 
   const organizationJsonLd = {

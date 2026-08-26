@@ -9,10 +9,11 @@ export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }))
 }
 
-export default function PrivacyPage({ params }: { params: { locale: string } }) {
-  if (!isLocale(params.locale)) notFound()
+export default async function PrivacyPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params
+  if (!isLocale(locale)) notFound()
   return (
-    <PageShell locale={params.locale}>
+    <PageShell locale={locale}>
       <div className="pt-4">
         <DraftBanner />
         <Content />

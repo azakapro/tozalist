@@ -28,16 +28,17 @@ const SECTIONS = [
   { href: 'limitations', title: 'Limitations', text: 'What the checks can and cannot tell you.' },
 ]
 
-export default function DocsIndex({ params }: { params: { locale: string } }) {
-  if (!isLocale(params.locale)) notFound()
+export default async function DocsIndex({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params
+  if (!isLocale(locale)) notFound()
   return (
-    <PageShell locale={params.locale}>
+    <PageShell locale={locale}>
       <h1 className="mb-6 pt-4 text-2xl font-bold">Developer documentation</h1>
       <div className="space-y-3">
         {SECTIONS.map((section) => (
           <Link
             key={section.href}
-            href={`/${params.locale}/docs/${section.href}`}
+            href={`/${locale}/docs/${section.href}`}
             className="block rounded-lg border border-slate-200 p-4 hover:border-slate-400"
           >
             <h2 className="font-semibold">{section.title}</h2>

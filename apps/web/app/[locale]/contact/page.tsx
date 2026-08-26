@@ -8,14 +8,15 @@ export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }))
 }
 
-export default function ContactPage({ params }: { params: { locale: string } }) {
-  if (!isLocale(params.locale)) notFound()
+export default async function ContactPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params
+  if (!isLocale(locale)) notFound()
   return (
-    <PageShell locale={params.locale}>
-      <h1 className="mb-2 pt-4 text-2xl font-bold">{t(params.locale, 'contact.title')}</h1>
-      <p className="mb-6 text-sm text-slate-600">{t(params.locale, 'contact.intro')}</p>
+    <PageShell locale={locale}>
+      <h1 className="mb-2 pt-4 text-2xl font-bold">{t(locale, 'contact.title')}</h1>
+      <p className="mb-6 text-sm text-slate-600">{t(locale, 'contact.intro')}</p>
       <div className="max-w-md">
-        <PilotForm locale={params.locale} source="landing_contact" />
+        <PilotForm locale={locale} source="landing_contact" />
       </div>
     </PageShell>
   )
