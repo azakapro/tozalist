@@ -26,7 +26,8 @@
     "billing:grant": "pnpm --filter @tozalist/api billing-grant",
     "billing:statement": "pnpm --filter @tozalist/api billing-statement",
     "secret-scan": "node scripts/scan-secrets.mjs",
-    "test:scripts": "vitest run"
+    "test:scripts": "vitest run",
+    "core:bench": "pnpm --filter @tozalist/core bench"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",

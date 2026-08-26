@@ -2,8 +2,9 @@
 # real Postgres/Redis/MinIO service containers; the engine is mocked in
 # tests), secret scan, and the banned-copy lint - on every push and PR.
 #
-# The accuracy-corpus gate from Step 8.2 is added to this workflow when that
-# step lands; it is intentionally absent until the corpus exists.
+# The Step 8.2 accuracy-corpus gate (pnpm core:bench) runs after the tests: it
+# checks the aggregation pipeline against a deterministic synthetic corpus and
+# fails the build on any logic regression.
 name: ci
 
 on:
@@ -95,6 +96,9 @@ jobs:
 
       - name: Tooling tests (scripts)
         run: pnpm test:scripts
+
+      - name: Accuracy regression corpus
+        run: pnpm core:bench
 
       - name: Format check (after build)
         run: pnpm format:check
