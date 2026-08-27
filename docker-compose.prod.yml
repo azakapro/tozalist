@@ -1,0 +1,246 @@
+name: tozalist-prod
+
+services:
+  caddy:
+    image: caddy:2.8.4-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN is required}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
+      API_ORIGIN: http://api:3001
+      DASHBOARD_ORIGIN: http://dashboard:3002
+      WEB_ORIGIN: http://web:3000
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      dashboard:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ['CMD', 'caddy', 'validate', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks: [edge]
+
+  api:
+    image: tozalist-api:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      API_PORT: '3001'
+      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+      ENGINE_URL: http://engine:8080
+      S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
+      S3_REGION: ${S3_REGION:?S3_REGION is required}
+      S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
+      DASHBOARD_ORIGIN: https://app.${DOMAIN:?DOMAIN is required}
+      WEB_ORIGIN: https://${DOMAIN:?DOMAIN is required}
+      METRICS_TOKEN: ${METRICS_TOKEN:?METRICS_TOKEN is required}
+      SMTP_ENABLED: 'false'
+    expose: ['3001']
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      engine:
+        condition: service_healthy
+    networks: [edge, backend]
+
+  migrate:
+    image: tozalist-api:${IMAGE_TAG:-local}
+    restart: 'no'
+    entrypoint: ['node', 'packages/db/dist/migrate.js']
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [backend]
+
+  worker:
+    image: tozalist-worker:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+      ENGINE_URL: http://engine:8080
+      S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
+      S3_REGION: ${S3_REGION:?S3_REGION is required}
+      S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      METRICS_HOST: 127.0.0.1
+      METRICS_PORT: '9464'
+      SMTP_ENABLED: 'false'
+    expose: ['9464']
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      engine:
+        condition: service_healthy
+    networks: [backend]
+
+  dashboard:
+    image: tozalist-dashboard:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: apps/dashboard/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://api.${DOMAIN:?DOMAIN is required}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: '3002'
+      NEXT_PUBLIC_API_URL: https://api.${DOMAIN:?DOMAIN is required}
+    expose: ['3002']
+    networks: [edge]
+
+  web:
+    image: tozalist-web:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://api.${DOMAIN:?DOMAIN is required}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: '3000'
+      NEXT_PUBLIC_API_URL: https://api.${DOMAIN:?DOMAIN is required}
+    expose: ['3000']
+    networks: [edge]
+
+  engine:
+    image: tozalist-engine:${IMAGE_TAG:-local}
+    build:
+      context: ./services/engine
+    restart: unless-stopped
+    environment:
+      ENGINE_PORT: '8080'
+      SMTP_ENABLED: 'false'
+      VERIFY_TIMEOUT_SECONDS: ${VERIFY_TIMEOUT_SECONDS:-15}
+    expose: ['8080']
+    networks: [backend]
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    expose: ['5432']
+    networks: [backend]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      [
+        'redis-server',
+        '--appendonly',
+        'yes',
+        '--appendfsync',
+        'everysec',
+        '--requirepass',
+        '${REDIS_PASSWORD:?REDIS_PASSWORD is required}',
+      ]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    expose: ['6379']
+    networks: [backend]
+
+  postgres-backup:
+    image: tozalist-postgres-backup:${IMAGE_TAG:-local}
+    build:
+      context: ./deploy
+      dockerfile: postgres-backup/Dockerfile
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: '5432'
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:?BACKUP_S3_ENDPOINT is required}
+      BACKUP_S3_REGION: ${BACKUP_S3_REGION:?BACKUP_S3_REGION is required}
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:?BACKUP_S3_BUCKET is required}
+      BACKUP_S3_PREFIX: ${BACKUP_S3_PREFIX:?BACKUP_S3_PREFIX is required}
+      AWS_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY:?BACKUP_S3_ACCESS_KEY is required}
+      AWS_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_KEY:?BACKUP_S3_SECRET_KEY is required}
+      AWS_EC2_METADATA_DISABLED: 'true'
+    volumes:
+      - postgres_backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'test -f /backups/.last-backup && test $$(find /backups/.last-backup -mmin -1500 | wc -l) -eq 1',
+        ]
+      interval: 1h
+      timeout: 5s
+      retries: 2
+      start_period: 2m
+    networks: [backend]
+
+volumes:
+  postgres_data:
+  redis_data:
+  postgres_backups:
+  caddy_data:
+  caddy_config:
+
+networks:
+  edge:
+    name: tozalist-prod-edge
+  backend:
+    name: tozalist-prod-backend

@@ -1,0 +1,23 @@
+{
+  email {$ACME_EMAIL}
+}
+
+(compressed) {
+  encode zstd gzip
+}
+
+{$DOMAIN} {
+  import compressed
+  reverse_proxy {$WEB_ORIGIN}
+}
+
+app.{$DOMAIN} {
+  import compressed
+  reverse_proxy {$DASHBOARD_ORIGIN}
+}
+
+api.{$DOMAIN} {
+  import compressed
+  respond /metrics 404
+  reverse_proxy {$API_ORIGIN}
+}

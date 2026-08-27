@@ -28,7 +28,10 @@
     "secret-scan": "node scripts/scan-secrets.mjs",
     "test:scripts": "vitest run",
     "core:bench": "pnpm --filter @tozalist/core bench",
-    "security:audit": "pnpm audit --prod --audit-level=high"
+    "security:audit": "pnpm audit --prod --audit-level=high",
+    "smoke": "node scripts/smoke-test.mjs",
+    "deploy:verify": "node scripts/deployment-verification.mjs",
+    "deploy:verify:runtime": "node scripts/verify-production-stack.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",

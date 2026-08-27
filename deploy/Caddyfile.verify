@@ -1,0 +1,16 @@
+http://127.0.0.1 {
+  encode zstd gzip
+
+  handle_path /api/* {
+    respond /metrics 404
+    reverse_proxy api:3001
+  }
+
+  handle_path /dashboard* {
+    reverse_proxy dashboard:3002
+  }
+
+  handle {
+    reverse_proxy web:3000
+  }
+}

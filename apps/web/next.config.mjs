@@ -24,6 +24,7 @@ const SECURITY_HEADERS = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   reactStrictMode: true,
   pageExtensions: ['ts', 'tsx', 'mdx'],
   async headers() {

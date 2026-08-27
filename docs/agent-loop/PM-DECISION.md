@@ -1,5 +1,196 @@
 # PM Decision
 
+## Step 9.1 local approval and Git/PR handoff — 2026-08-27
+
+- Decision: `APPROVED`
+- Owner: `Codex orchestration for the approved mechanical handoff`
+- Baseline: `feat/synthetic-preview-deployment` at exact merged `origin/main` `948b6b1579237da4a1bf9fce247b89557440155b`.
+- Actual diff: `PASS — exactly the 23 Step 9.1 paths listed below.`
+- Acceptance: `PASS — six non-root production images built and inspected; the isolated 12-service synthetic stack passed smoke, private-network/public-port isolation, backup upload/retention, seeded-data disposable restore, and scoped teardown.`
+- Verification: `PASS — frozen install, clean production audit and secret scan, copy lint, test DB preparation, build, typecheck, 625/625 workspace tests, 5/5 tooling tests, 500/500 benchmark fixtures, lint, format, diff check, 14/14 deployment contract checks, and the full runtime verifier.`
+- Drift/scope: `PASS — no dependency or lockfile change, no schema/migration or business-logic change, no SMTP enablement, no real customer data, no payment/legal work, and no external deployment.`
+- Release boundary: `Step 9.1 is PM-designated as one independently releasable fast-launch module for a synthetic-data preview; one draft PR is authorized now rather than waiting for Step 9.2.`
+
+### Authorized Git handoff
+
+1. Stage and commit exactly these 23 paths:
+   - `.dockerignore`
+   - `apps/api/Dockerfile`
+   - `apps/dashboard/Dockerfile`
+   - `apps/dashboard/next.config.mjs`
+   - `apps/web/Dockerfile`
+   - `apps/web/next.config.mjs`
+   - `apps/worker/Dockerfile`
+   - `deploy/.env.production.example`
+   - `deploy/Caddyfile`
+   - `deploy/Caddyfile.verify`
+   - `deploy/README.md`
+   - `deploy/backup.sh`
+   - `deploy/docker-compose.verify.yml`
+   - `deploy/postgres-backup/Dockerfile`
+   - `deploy/restore.sh`
+   - `docker-compose.prod.yml`
+   - `docs/agent-loop/CTO-REPORT.md`
+   - `docs/agent-loop/PM-DECISION.md`
+   - `docs/agent-loop/STATE.md`
+   - `package.json`
+   - `scripts/deployment-verification.mjs`
+   - `scripts/smoke-test.mjs`
+   - `scripts/verify-production-stack.mjs`
+2. Use the exact commit message:
+
+   ```text
+   deploy: add synthetic preview stack
+   ```
+
+3. Push only `feat/synthetic-preview-deployment` to origin; do not alter `main`.
+4. Create one draft PR into `main` titled:
+
+   ```text
+   Release gate: add synthetic preview deployment
+   ```
+
+   The body must summarize the six-image deployment, private topology, synthetic smoke, backup/restore proof, 625 workspace tests, clean audit, and the explicit limits: no deployment, SMTP enablement, real customer data, payment provider, or legal clearance. State that manual product-owner merge is required.
+5. Do not merge or deploy and do not begin Step 9.2. After the handoff, record the commit, branch, PR URL/state, exact-path proof, and remote-CI status in `CTO-REPORT.md` and `STATE.md` as uncommitted relay edits; return ownership to PM and stop.
+
+### State transition
+
+- State status: `ready_for_cto`
+- Current step: `9.1`
+- Owner: `Codex orchestration for the approved mechanical handoff`
+- Next action: `Create only the exact Step 9.1 commit, feature push, and draft PR; then stop for remote review.`
+
+## Step 9.1 correction required — 2026-08-27
+
+- Decision: `CORRECTION_REQUIRED`
+- Owner: `Claude Code (CTO), with Codex orchestration/review`
+- Baseline: preserve the current `feat/synthetic-preview-deployment` worktree and correct Step 9.1 only.
+- Execution mode: `Repository implementation and complete local Docker verification only. Do not deploy externally, commit, push, create a PR, merge, enable SMTP, process real customer data, change dependencies/lockfiles/schema/migrations/business behavior, or begin another roadmap step.`
+- PM fact check: Docker Desktop is available (`server=29.7.2`, Docker Desktop). The prior `Docker unavailable` report is rejected.
+
+### Release-blocking corrections
+
+1. Add a root `.dockerignore` that excludes `.git`, all `.env*` except the production example, credentials, `node_modules`, `.next`, `dist`, coverage, tests, relay working records, and other local artifacts. It must not exclude required manifests/source. Prove no secret or stale host build output enters a build context.
+2. Make all four application Docker builds reproducible for this pnpm monorepo: copy `pnpm-workspace.yaml` before install; include every required workspace manifest/source; build dependency packages before consumers; never depend on host `dist`/`.next`; and use only final runtime artifacts/dependencies. Do not add or update a dependency.
+3. Fix the web image's OpenAPI generation using the actual API package and its dependency graph. Fix both Next standalone runtime layouts: the generated entrypoints are `apps/web/server.js` and `apps/dashboard/server.js` inside the standalone root, not root `server.js`. Copy `public` and `.next/static` to the matching standalone app paths. Dashboard must bind `0.0.0.0:3002`; web must bind `0.0.0.0:3000`.
+4. Every final application image must run non-root, declare an accurate health check, expose only its own internal port, and contain no source/test/dev-only artifacts. Replace the worker's no-op health check with a loopback probe of its real metrics server on port 9464.
+5. Make Compose fail closed with `${NAME:?message}` for every required deployment value. Supply the actual API/worker runtime variables: product `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`; `SESSION_SECRET`, `DASHBOARD_ORIGIN`, `WEB_ORIGIN`, `METRICS_TOKEN`; correct ports/hosts; and any other variables proven required by startup. Do not invent `METRICS_USERNAME`/`METRICS_PASSWORD`; the API contract is one bearer `METRICS_TOKEN`, while worker metrics remain loopback-only.
+6. Protect Redis with a strong required `REDIS_PASSWORD`, use credentialed internal `REDIS_URL` values without logging them, keep AOF, and make its health check authenticate without placing the password in command output.
+7. Use explicit `edge` and `backend` networks so Caddy has no network route to engine/PostgreSQL/Redis/backup; engine and stateful services have no published ports. Preserve outbound functionality required for DNS, object storage, and webhooks. Only Caddy may publish 80/443.
+8. Remove the public/malformed Caddy `:80/health` block and manual forwarded-header overwrites. Rely on Caddy's safe reverse-proxy defaults, keep automatic TLS/compression, and explicitly make API `/metrics` unavailable through the public proxy. Validate the Caddyfile with the actual pinned Caddy image.
+9. Replace the broken backup service with a purpose-built, explicitly versioned, non-root image containing PostgreSQL client, Bash, and AWS CLI. It must receive required database and dedicated `BACKUP_S3_*` values, require an `https://` backup endpoint, use authenticated AWS CLI only, and never fall back to unsigned `curl`.
+10. The backup job must create and upload a daily backup every day plus a weekly copy on the documented schedule, prune the remote destination to exactly the newest 7 daily and 4 weekly objects, and record health only after dump, upload, and remote retention succeed. It must fail closed and must not log credentials or secret-bearing URLs.
+11. Make restore a real disposable restore drill: require a nonempty target that is different from the configured production database and explicitly named/marked as disposable; require an exact confirmation value; drop/recreate only that disposable target; restore the selected gzip SQL; and verify it is queryable. It must be automatable without a misleading interactive prompt and must refuse the production/empty target.
+12. Rewrite `.env.production.example` around actual contracts: separate product `S3_*` from dedicated `BACKUP_S3_*`; add Redis password, API session/origins/metrics token and required service settings; remove fictional metrics variables and incorrect SMTP/legal claims; keep `SMTP_ENABLED=false`; and use unmistakable non-secret placeholders that Compose rejects if unchanged. Do not include deployable secrets.
+13. Rewrite `pnpm smoke` against the real API: `/v1/email/check`, `/v1/batches`, multipart CSV field, response envelope (`data.batch_id`, `data.status`, terminal `done`/`failed`), and synthetic `.invalid` fixtures only. Read the API key only from `SMOKE_API_KEY`, never a CLI argument. TLS verification must be on by default; an insecure/local exception may exist only behind an explicit flag that rejects non-loopback hosts. Never print keys, emails, signed URLs, or response bodies that may contain them. Use an explicit engine probe URL or a safe URL parser, not string replacement.
+14. Replace regex-only deployment verification with deterministic parsing/behavior checks that fail if `docker compose config` fails. Do not use `|| true` or obsolete `docker-compose`. Tests must inspect service-local Compose structure, Dockerfiles/final users/entrypoints, Caddy validation, required-variable rejection, actual backup retention behavior using fake local tools/storage, restore refusal behavior, smoke fixture/secret safety, Next standalone paths, and exact public ports.
+15. Correct `deploy/README.md`: use Docker Compose v2 (`docker compose`); remove commands such as `env | grep DATABASE_URL` that expose credentials; use the real routes and safe key handling; do not claim fake zero downtime, mocked SMTP, production readiness, service counts, or verification that was not proven. Provide exact local synthetic-stack, seed, smoke, backup, disposable restore, rollback, and teardown commands that do not delete developer data.
+16. Do not claim completion from static checks. Run the original 16 required verification groups, including real image builds/inspection, full local production stack health, synthetic smoke, network/port isolation, one real backup upload against a local S3-compatible test service if included in a test-only override, remote-retention behavior, and a disposable-database restore. Tear down only the Step 9.1 synthetic stack and its explicitly named disposable volumes after recording evidence; do not delete existing developer data.
+
+### Reporting rules
+
+- Record exact commands, exit codes, image IDs/users/health/ports, service health, test totals, backup object list, restore target/proof, and teardown result in `CTO-REPORT.md`.
+- If a correction cannot be proven locally, report the exact blocker; do not label the package production-ready.
+- Set `STATE.md` to `awaiting_pm_review`, owner PM, and stop after the corrected report.
+
+### State transition
+
+- State status: `ready_for_cto`
+- Current step: `9.1`
+- Owner: `Claude Code (CTO)`
+- Next action: `Correct the rejected Step 9.1 draft, execute complete local Docker verification, report exact evidence, and stop.`
+
+## Step 8.5 merge verification and Step 9.1 authorization — 2026-08-27
+
+### Step 8.5 merge verification
+
+- Decision: `APPROVED`
+- PR #9: `MERGED` at `2026-08-26T19:20:55Z`.
+- Merged main: `origin/main` is merge commit `948b6b1579237da4a1bf9fce247b89557440155b`, with parents `ead04597ae99bb0b1c32f993d6806809bbf2fdc6` and approved Step 8.5 commit `acfbf736012301b1f8bf575a18e4a1e60752e142`.
+- Ancestry: `acfbf73` is confirmed reachable from `origin/main`.
+- Step 8.5 status: `COMPLETE`.
+
+### Step 9.1 — synthetic-data preview deployment package
+
+- Decision: `APPROVED`
+- Owner: `Claude Code (CTO), with Codex orchestration/review`
+- Execution mode: `Repository implementation and local verification only. Do not deploy externally, commit, push, create a PR, merge, enable SMTP, or process real customer data in this action.`
+- Launch definition: `A public synthetic-data preview is being prepared. It is not a legally cleared real-customer beta. SMTP stays disabled, legal-page draft banners remain, and no payment provider is added.`
+
+#### Authorized scope
+
+1. Preserve the three uncommitted relay records and create/switch to `feat/synthetic-preview-deployment` from exact merged `origin/main` `948b6b1579237da4a1bf9fce247b89557440155b`. Stop on any baseline/worktree discrepancy.
+2. Add production multi-stage container builds for `api`, `worker`, `dashboard`, and `web`; retain and adjust the existing engine image only as necessary. Final images must run as non-root, include only runtime artifacts/dependencies, expose only their internal service port, define a real health check, and contain no source-only/test/dev tooling or secrets. Use compatible explicitly versioned base images, never `latest`.
+3. Configure Next.js standalone production output for dashboard/web while preserving existing CSP/security headers, 38-page static generation, locales, MDX, and API-origin behavior.
+4. Add `docker-compose.prod.yml` containing Caddy, API, worker, dashboard, web, engine, PostgreSQL, Redis, and a PostgreSQL backup sidecar. Only Caddy may publish public ports 80/443. PostgreSQL, Redis, API, worker metrics, and engine must not publish host ports. The engine stays on an internal network and must be unreachable externally. Redis must use AOF persistence; durable named volumes and service health/dependency ordering are required.
+5. Add a production Caddy configuration for `${DOMAIN}`, `app.${DOMAIN}`, and `api.${DOMAIN}` with automatic TLS, reverse proxying, security-preserving forwarded headers, sensible compression, and no route exposing the engine, database, Redis, metrics, or backup service.
+6. Add a guarded database-backup sidecar and scripts producing encrypted-transport uploads to the configured S3-compatible backup destination. Retain 7 daily and 4 weekly backups. Add an exact restore-drill procedure/script that refuses an empty or production target unless an explicit confirmation variable is set. Never embed credentials or log secret-bearing URLs.
+7. Add `deploy/.env.production.example` containing names/placeholders and generation guidance only—no secrets or deployable defaults. Require strong database/session/metrics/storage secrets, `SMTP_ENABLED=false`, internal service URLs, production origins, and a dedicated backup bucket/prefix. Fail closed on missing required values.
+8. Add `deploy/README.md` covering one-host provisioning (UFW 80/443/SSH only, fail2ban, unattended updates, SSH keys), DNS, environment setup, first deploy, migrations, seed/synthetic preview setup, zero-downtime-style redeploy, rollback, backup inspection, destructive restore drill, monitoring token/bind constraints, and the port-25/`SMTP_ENABLED=false` behavior.
+9. Add a root `pnpm smoke` command and implementation accepting explicit public base URLs plus a seeded **synthetic-only** API key. It must verify API health, auth rejection, one authenticated synthetic check, a small synthetic batch round-trip, public site 200 in all three locales, dashboard reachability, and that the engine is not publicly reachable. It must never print the key, email addresses, signed URLs, or other secrets.
+10. Add focused static/behavioral tests proving: production Compose publishes only 80/443; engine has no published port or Caddy route; images are non-root with health checks; SMTP is false in preview configuration; metrics are credentialed/internal; backup retention and restore guards exist; smoke fixtures are synthetic and secret-safe; Next standalone output is enabled.
+11. Do not change business logic, database schema/migrations, dependency versions/lockfile, customer-data policy text, payment behavior, SMTP behavior, or unrelated files. Do not add a hosted platform dependency or account-specific identifier without PM approval.
+
+#### Required verification
+
+Run and report exact exit status/evidence for:
+
+1. `pnpm install --frozen-lockfile`
+2. `pnpm security:audit`
+3. `pnpm secret-scan`
+4. `pnpm web:lint-copy`
+5. `pnpm db:test:prepare`
+6. `pnpm -r build`
+7. `pnpm -r typecheck`
+8. `pnpm -r test`
+9. `pnpm test:scripts`
+10. `pnpm core:bench`
+11. `pnpm lint`
+12. `pnpm format:check`
+13. `git diff --check`
+14. Production Compose config rendering with a safe synthetic environment.
+15. Build every production image and inspect final user, health check, exposed ports, and absence of obvious source/test/dev artifacts.
+16. Start the local production stack, wait for health, run the smoke suite with synthetic fixtures, prove engine/public-port isolation, exercise one backup, perform a restore drill only against a disposable database, then tear the stack down without deleting persistent developer data.
+
+If Docker Engine is unavailable, report that verification as `BLOCKED` after completing all safe repository work; do not claim container/runtime evidence. Do not start or alter an external host.
+
+#### Acceptance criteria
+
+- Production images build reproducibly, run non-root, are healthy, and exclude dev/test/source-only material.
+- Only Caddy exposes 80/443; engine/database/Redis/metrics/backup remain private and engine isolation is tested.
+- Synthetic preview works end to end with SMTP off, secrets redacted, and no real customer data.
+- Backup retention and a guarded disposable restore drill are proven.
+- Full repository and deployment-specific tests pass with audit clean and no schema/dependency drift.
+- `CTO-REPORT.md` and `STATE.md` record exact evidence and return ownership to PM; Claude stops.
+
+### State transition
+
+- State status: `ready_for_cto`
+- Current step: `9.1`
+- Owner: `Claude Code (CTO)`
+- Next action: `Implement and locally verify only the synthetic-preview deployment package, report, and stop.`
+
+## Step 8.5 remote verification — 2026-08-27
+
+- Decision: `APPROVED`
+- Pull request: `#9 — Release gate: harden batch result CSV cells`.
+- Remote commit: `acfbf736012301b1f8bf575a18e4a1e60752e142`, one commit based on merged main `ead04597ae99bb0b1c32f993d6806809bbf2fdc6`.
+- Remote diff: `PASS — exactly the six PM-authorized paths.`
+- Remote CI: `PASS — push run 33002868622 and pull-request run 33002907022 both completed successfully.`
+- PR state at review: `OPEN, DRAFT, UNMERGED`, exact approved title, base `main`, head `feat/batch-csv-formula-hardening`.
+- Scope: `PASS — formula-cell security boundary and tests only, factual gate documentation, relay records; no dependency, lockfile, schema, migration, deployment, SMTP, payment, or unrelated work.`
+
+### Product-owner action
+
+The product owner may mark PR #9 ready and merge it into `main`. Codex/Claude must not perform that merge without a direct product-owner instruction. After merge verification, the next authorized planning target is the shortest synthetic-data preview deployment path; real customer data remains locked pending legal approval.
+
+### State transition
+
+- State status: `awaiting_owner_merge`
+- Current step: `8.5`
+- Owner: Product owner
+- Next action: `Product owner merges approved PR #9; PM verifies origin/main and scopes the synthetic-data preview deployment.`
+
 ## Step 8.5 local approval and Git handoff — 2026-08-26
 
 - Decision: `APPROVED`
