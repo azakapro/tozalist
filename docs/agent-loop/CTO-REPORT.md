@@ -1,166 +1,65 @@
-# CTO Report — Step 9.1 correction
+# CTO Report — Step 9.2 correction
 
-- Step: `9.1` — Synthetic-data preview deployment package
-- Branch: `feat/synthetic-preview-deployment`
-- Base and current HEAD: `948b6b1579237da4a1bf9fce247b89557440155b`
+- Step: `9.2` — Beta onboarding kit (PM correction cycle)
+- Branch: `feat/beta-onboarding-kit`, from exact `origin/main` `1660a833e05bfaca98577f83de47915d96479a3c`
+- HEAD: `1660a833e05bfaca98577f83de47915d96479a3c` (no commits made)
 - Date: 2026-08-27
-- Result: `VERIFIED_AWAITING_PM_REVIEW`
-- Git/external state: nothing staged, committed, pushed, deployed, or made public
+- Result: `CORRECTION_COMPLETE_AWAITING_PM_REVIEW`
+- Git/external state: nothing committed, staged, pushed, PR'd, merged, or deployed
 
 ## Outcome
 
-The Step 9.1 correction is implemented. All repository checks pass, all six production images build, image metadata is correct, the production Compose contract passes, the pinned Caddy parser accepts the Caddyfile, and deterministic backup-retention/restore/smoke tests pass.
+All three PM corrections are applied, each verified against the actual product contract it conflicted with. Only the three named documents changed; the other three kit documents and the exact nine-path scope are preserved. All six original Step 9.2 checks pass again.
 
-After the host restart, `pnpm deploy:verify:runtime` completed all eight stages with exit 0. It built and inspected all six images, observed 12 isolated services, ran the complete synthetic public smoke flow, proved only Caddy published 80/443 and Caddy had no route to the engine, verified two backup objects, restored seeded data into a disposable `_restore_drill` database, and removed every isolated container, network, and volume.
+## PM corrections applied (2026-08-27)
 
-Step 9.1 is ready for PM review. This report is not Git-handoff permission.
+### 1. Runbook: nonexistent lead inbox → real PostgreSQL lead-review workflow
 
-## Corrected implementation
+`docs/beta/first-14-days-runbook.md` no longer assumes any inbox, notification, or lead UI. Changes:
 
-### Images and build context
+- The daily-loop line "check the pilot form inbox … reply to every new request" now points to a new "Reviewing pilot-form leads (the only supported workflow)" section; Day 1's "confirm it arrives" now says to confirm the stored row via that same workflow and to mark the synthetic test row's `id` in the tracker so it is never counted (it is removed by the retention sweep — no manual deletion instruction). Day 10's unrelated "commitment the moment it arrives" was rephrased to "is received" so no "arriving" phrasing remains anywhere.
+- The new section states the facts first: a submission is stored as a row in the production PostgreSQL `leads` table and nothing else happens — no email notification, lead inbox, or dashboard view. Review happens from a restricted server terminal using Compose v2 with `--env-file /secure/path/to/tozalist.production.env` and `-f docker-compose.prod.yml`, matching `deploy/README.md`'s existing command contract verbatim.
+- The command: `docker compose … exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id, created_at, source, locale, email, company, phone, message FROM leads WHERE deleted_at IS NULL AND expires_at > now() ORDER BY created_at DESC LIMIT 50;"'`. The single-quoted `sh -c` makes `POSTGRES_USER`/`POSTGRES_DB` expand inside the container only, so no environment value or credential appears on screen or in host shell history; the connection uses the container's local socket. The result set is limited (LIMIT 50) and excludes soft-deleted (`deleted_at IS NULL`) and expired (`expires_at > now()`) rows — only active, unexpired leads.
+- Privacy rules are explicit: the output is personal data, read in place; never copied into chat, relay files, source control, analytics, spreadsheets, or the tracker; no `echo` of connection strings, no `env`/`printenv`. The daily tracker records only the lead's `id` (UUID), date, `source`/`locale`, and pipeline status — raw contact fields never leave the database; replies are written directly in a mail/messaging client from the terminal view.
+- Explicit no-build rule: no export scripts, notification hooks, or admin UI; outgrowing the 50-row view is a PM product decision, not a runbook workaround.
 
-- Added a root `.dockerignore` excluding `.git`, environment/credential files, relay working records, host dependency/build output, coverage, tests, and local artifacts while retaining required source and manifests.
-- Added reproducible pnpm-workspace multi-stage Dockerfiles for API, worker, dashboard, and web.
-- Each build copies workspace manifests before install, builds dependency workspaces before consumers, and does not depend on host `dist` or `.next` output.
-- API final image contains the compiled API and database migrations needed at runtime.
-- Dashboard/web use the actual monorepo Next standalone layout and copy static output into the corresponding `apps/dashboard` and `apps/web` paths.
-- Worker health is a real loopback probe of its metrics server on port 9464.
-- The existing engine image and a purpose-built PostgreSQL backup image are included in the production build.
+### 2. Onboarding checklist: retention restricted to the supported `7/30/90`
 
-### Production topology
+`docs/beta/onboarding-checklist.md` section 5 replaced the unrestricted `____ days` blank with exactly three checkboxes — `7`, `30` (marked as product default), `90` — and states the product accepts no other value, naming 45/60/180 as examples that cannot be set. The unverifiable "product default 30 days" parenthetical claim moved from prose into the option list where it is checkable.
 
-- `docker-compose.prod.yml` contains Caddy, API, worker, dashboard, web, engine, migrate, PostgreSQL, Redis, and PostgreSQL backup services.
-- Only Caddy publishes host ports 80/443; all application, metrics, engine, database, Redis, and backup ports stay private.
-- Caddy is attached only to `edge`; engine, PostgreSQL, Redis, backup, API, and worker use the private `backend` network as required.
-- Redis requires authentication, uses credentialed internal URLs, enables AOF, and authenticates its health check.
-- Required deployment values use fail-closed Compose expansion.
-- Product object storage and dedicated backup object storage have separate required variables.
-- SMTP remains hard-disabled.
-- Caddy uses automatic TLS/compression/default proxy forwarding and explicitly rejects the public API `/metrics` path.
+### 3. Interview script: truthful, narrow opening
 
-### Backup, restore, and synthetic verification
-
-- The non-root backup image contains PostgreSQL client, Bash, gzip, and AWS CLI.
-- Backups fail closed, require encrypted transport except for the explicit isolated local-MinIO verifier, upload through signed AWS CLI requests, retain 7 daily and 4 weekly remote objects, and update health only after success.
-- Restore refuses empty, production, or non-`_restore_drill` targets and requires an exact disposable-target confirmation before drop/create/restore/query proof.
-- The smoke command exercises actual API routes, multipart batch upload/polling, three public locales, dashboard reachability, auth rejection, an authenticated synthetic `.invalid` address, and public engine isolation. The key is accepted only through `SMOKE_API_KEY` and neither keys nor response bodies are printed.
-- An isolated Compose overlay provides synthetic-only local MinIO, dedicated stack names/networks/volumes, and local Caddy routing without changing production behavior.
-- `pnpm deploy:verify:runtime` builds, inspects, starts, smokes, verifies ports/networks, proves backup upload, performs only a disposable restore, and tears down only its uniquely named synthetic stack.
+The verbatim opening no longer says "Everything stays between us". It now says: "I'll take notes and use them internally as research for what we build; and please don't share any actual customer data with me — counts and rough numbers are all I need." This describes exactly the two real facts (internal research-note use; the no-customer-data rule) and promises no confidentiality, secrecy, deletion, legal status, or data handling beyond current practice.
 
 ## Required verification
 
-| # | Verification | Result | Evidence |
+### 1. Corrected commands re-read against the actual contracts — `PASS`
+
+- `docker-compose.prod.yml`: the `postgres` service (postgres:16-alpine) defines `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` in its environment; the runbook command `exec`s that exact service name and references only `POSTGRES_USER`/`POSTGRES_DB`, never the password. The `--env-file /secure/path/to/tozalist.production.env` + `-f docker-compose.prod.yml` form matches `deploy/README.md` exactly.
+- `packages/db/src/schema/leads.ts`: every column in the query (`id`, `created_at`, `source`, `locale`, `email`, `company`, `phone`, `message`, `deleted_at`, `expires_at`) exists in the schema. The SELECT was additionally executed verbatim against the local test database (which carries the real migrated schema): it ran successfully and returned 8 fixture rows — proof of syntax and column validity, not just a read-through.
+- Retention contract: `apps/api/src/internal/routes.ts:61` `RETENTION_CHOICES = new Set([7, 30, 90])` (enforced at :476) and `apps/dashboard/app/settings/page.tsx:10` `RETENTION_OPTIONS = [7, 30, 90]` — the checklist now offers exactly these three values with 30 as default.
+
+### 2. Runbook forbidden-content check — `PASS`
+
+Grep across the corrected runbook: the only occurrences of "inbox"/"notification"/"admin UI" are the factual negations stating those things do not exist and must not be built (mirroring the PM's own correction text); zero instructions print credentials or environment values; zero instructions copy raw personal data anywhere; no invented UI or API is referenced. No "arriving/arrives" phrasing about submissions remains.
+
+### 3. The six original Step 9.2 checks — all `PASS`
+
+| # | Check | Result | Evidence |
 |---|---|---|---|
-| 1 | `pnpm install --frozen-lockfile` | `PASS` | Exit 0; lockfile already current; 648 packages restored from the existing frozen graph. |
-| 2 | `pnpm security:audit` | `PASS` | Exit 0; `No known vulnerabilities found`. |
-| 3 | `pnpm secret-scan` | `PASS` | Exit 0; 396 files clean. |
-| 4 | `pnpm web:lint-copy` | `PASS` | Exit 0; copy lint clean. |
-| 5 | `pnpm db:test:prepare` | `PASS` | Exit 0 with the repository local environment loaded; dedicated `tozalist_test` ready. |
-| 6 | `pnpm -r build` | `PASS` | Exit 0; seven projects built; dashboard 12/12 and web 38/38 static pages generated. |
-| 7 | `pnpm -r typecheck` | `PASS` | Exit 0 for all seven projects. |
-| 8 | `pnpm -r test` | `PASS` | Exit 0; 625/625 workspace tests. |
-| 9 | `pnpm test:scripts` | `PASS` | Exit 0; 5/5 tooling tests. |
-| 10 | `pnpm core:bench` | `PASS` | Exit 0; 500/500 fixtures exact, 100% precision/recall for every reason code. |
-| 11 | `pnpm lint` | `PASS` | Exit 0. |
-| 12 | `pnpm format:check` | `PASS` | Exit 0. |
-| 13 | `git diff --check` | `PASS` | Exit 0. |
-| 14 | Production Compose rendering | `PASS` | `pnpm deploy:verify`: 14/14 checks, including fail-closed unchanged environment and actual pinned-image Caddy validation through BuildKit. |
-| 15 | Build and inspect every image | `PASS` | All six images built. Metadata and in-container filesystem inspection proved final user, healthcheck, exposed port, entrypoint, no TypeScript package, and no source/test/declaration artifacts. |
-| 16 | Start stack, smoke, network, backup, restore, teardown | `PASS` | `pnpm deploy:verify:runtime` exit 0; 12 services observed, complete smoke passed, isolation passed, two backup objects verified, seeded-data restore passed, scoped teardown passed. |
-
-### Passing test totals
-
-- Core: 186
-- Shared: 69
-- Database: 71
-- API: 179
-- Worker: 60
-- Dashboard: 32
-- Web: 28
-- Workspace total: **625**
-- Tooling-script tests: **5**
-- Accuracy corpus: **500/500**
-- Deployment contract checks: **14/14**
-
-## Image evidence
-
-All of these images built successfully:
-
-- `tozalist-api:step91`
-- `tozalist-worker:step91`
-- `tozalist-dashboard:step91`
-- `tozalist-web:step91`
-- `tozalist-engine:step91`
-- `tozalist-postgres-backup:step91`
-
-`docker image inspect` recorded:
-
-| Image | User | Port | Entrypoint | Healthcheck |
-|---|---|---:|---|---|
-| API | `tozalist` | 3001 | `node apps/api/dist/server.js` | loopback `/health` |
-| Worker | `tozalist` | 9464 | `node apps/worker/dist/main.js` | loopback `/metrics` |
-| Dashboard | `tozalist` | 3002 | `node server.js` in standalone app directory | loopback HTTP |
-| Web | `tozalist` | 3000 | `node server.js` in standalone app directory | loopback `/en` |
-| Engine | `engine` | 8080 | `/usr/local/bin/engine` | loopback `/health` |
-| Backup | `postgres` | no published host port | scheduled `/usr/local/bin/backup.sh` | successful-backup recency |
-
-## Runtime evidence
-
-- Docker client/server: 29.7.2; Docker Compose: v5.4.0.
-- Migrations exited 0 and every long-running service reached healthy state.
-- Synthetic smoke passed API health, invalid-key rejection, authenticated check, batch round-trip, `en`/`uz`/`ru` pages, dashboard reachability, and absence of a public engine listener.
-- Runtime publishers showed only Caddy on host 80/443. Caddy could not resolve/reach the backend-only engine service.
-- The backup sidecar became healthy, an explicit post-seed backup succeeded, and two daily objects were observed in isolated MinIO.
-- The latest post-seed backup restored only into `synthetic_preview_restore_drill`; the restored organization query proved seeded data was recovered.
-- Final evidence: `Runtime evidence: 12 services observed; 2 backup object(s); disposable restore query passed.`
-- Teardown removed every `tozalist-step91-verify` container, network, and volume. Existing developer containers and unrelated containers/data were left untouched.
-
-### Defects caught and corrected during runtime proof
-
-1. API/worker images retained declarations and vendor tests. Production dependencies now come from a pruned throwaway stage, and final workspace output removes declarations, maps, tests, and the DB test-preparation artifact.
-2. The first pruned images omitted pnpm workspace dependency links. The final layers now copy the exact application/core/db/shared production link trees; direct runtime imports and migrations pass.
-3. Isolated MinIO initially received a different synthetic secret from the backup sidecar. The verifier still uses separately named product/backup variables, but one local-only MinIO account consistently backs both.
-4. The first engine-isolation probe reached the separate developer engine on host 8080. The isolated probe now uses a verification-only host port, while runtime publisher inspection independently proves the production engine publishes nothing.
-5. The startup health backup preceded synthetic seeding. Stage 7 now explicitly creates a post-seed backup before restore, proving data-bearing recovery rather than schema-only recovery.
+| 1 | Exact path set, no out-of-scope diff | `PASS` | `git status --porcelain`: exactly `M` on the three relay records + untracked `docs/beta/` containing only the six authorized files. |
+| 2 | No `TODO`/`TBD`/placeholder/secret/raw-personal-data/claim | `PASS` | Case-insensitive grep across `docs/beta/`: zero hits. |
+| 3 | Coverage and cross-reference consistency | `PASS` | All intra-kit links machine-checked, 0 broken; the new runbook section changes no cross-document definitions. |
+| 4 | `pnpm secret-scan` | `PASS` | Exit 0; `secret scan: clean (402 files)`. |
+| 5 | `pnpm format:check` | `PASS` | Exit 0; all files match Prettier style (the three corrected files were re-formatted through Prettier). |
+| 6 | `git diff --check` | `PASS` | Exit 0 including the new files (via intent-to-add, then unstaged; worktree returned to the exact state in check 1). |
 
 ## Drift and scope
 
-- `pnpm-lock.yaml`: unchanged.
-- Dependency versions: unchanged.
-- Database schema and migrations: unchanged.
-- Business logic: unchanged.
-- No deployment, commit, push, PR, merge, SMTP enablement, customer-data processing, payment work, or legal/privacy-policy change.
-- Existing PM relay decision was preserved.
-
-## Files in Step 9.1
-
-New:
-
-- `.dockerignore`
-- `apps/api/Dockerfile`
-- `apps/worker/Dockerfile`
-- `apps/dashboard/Dockerfile`
-- `apps/web/Dockerfile`
-- `docker-compose.prod.yml`
-- `deploy/.env.production.example`
-- `deploy/Caddyfile`
-- `deploy/Caddyfile.verify`
-- `deploy/README.md`
-- `deploy/backup.sh`
-- `deploy/restore.sh`
-- `deploy/docker-compose.verify.yml`
-- `deploy/postgres-backup/Dockerfile`
-- `scripts/deployment-verification.mjs`
-- `scripts/smoke-test.mjs`
-- `scripts/verify-production-stack.mjs`
-
-Modified:
-
-- `apps/dashboard/next.config.mjs`
-- `apps/web/next.config.mjs`
-- `package.json`
-- relay records under `docs/agent-loop/`
+- Only `docs/beta/first-14-days-runbook.md`, `docs/beta/onboarding-checklist.md`, `docs/beta/interview-script.md`, and the relay records changed in this correction; `accuracy-measurement.md`, `weekly-report-template.md`, and `stop-criteria.md` are byte-identical to the reviewed versions.
+- No product code, configuration, dependency, lockfile, schema, migration, or deployment file changed. The one temporary SQL-validation script ran from the scratchpad/`packages/db` and was deleted; it does not appear in the worktree.
+- 0 commits ahead of `origin/main`; nothing staged; branch local-only.
 
 ## Next action
 
-PM reviews the actual diff, this report, and the Step 9.1 acceptance criteria. If approved, PM may authorize the exact Step 9.1 Git handoff; no commit, push, PR, deployment, or Step 9.2 work is authorized by this report alone.
+PM reviews the corrected three documents and this evidence. Step 9.2 remains the final roadmap step; the Phase 9 Git handoff and the `complete` transition are PM decisions after approval.
