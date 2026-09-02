@@ -1,5 +1,136 @@
 # PM Decision
 
+## Step 9.2 local approval and final roadmap Git/PR handoff — 2026-08-27
+
+- Decision: `APPROVED`
+- Owner: `Codex orchestration for the approved mechanical handoff`
+- Baseline: `feat/beta-onboarding-kit` at exact merged `origin/main` `1660a833e05bfaca98577f83de47915d96479a3c`.
+- Actual diff: `PASS — exactly nine paths: the six authorized docs/beta files and the three relay records.`
+- Acceptance: `PASS — all five beta-kit documents plus the first-14-days runbook are specific enough to use unedited; day-14/week-10/week-13 criteria are hard pass/fail gates with mandatory pause-and-reassess actions.`
+- Correction review: `PASS — lead review uses the actual restricted-terminal PostgreSQL/Compose contract; retention is exactly 7/30/90 with 30 default; interview notes are described truthfully without a confidentiality promise.`
+- Safety: `PASS — no raw customer-list request, legal/production/accuracy guarantee, secret, payment-provider promise, SMTP enablement, deployment, or real-customer-data permission. Any operational tracker or completed partner copy remains access-controlled and outside source control; identifiers are treated as personal data.`
+- Verification: `PASS — exact-path audit, complete coverage/cross-link checks, 402-file secret scan, format check, and diff check.`
+- Drift/scope: `PASS — no product, configuration, dependency, lockfile, schema, migration, deployment, SMTP, payment, or legal/privacy-policy change.`
+- Roadmap status: `Step 9.2 is the final roadmap step. Roadmap implementation becomes complete only after the approved PR passes remote review and is merged; external deployment remains a separate explicitly authorized owner action.`
+
+### Authorized Git handoff
+
+1. Stage and commit exactly these nine paths:
+   - `docs/beta/accuracy-measurement.md`
+   - `docs/beta/first-14-days-runbook.md`
+   - `docs/beta/interview-script.md`
+   - `docs/beta/onboarding-checklist.md`
+   - `docs/beta/stop-criteria.md`
+   - `docs/beta/weekly-report-template.md`
+   - `docs/agent-loop/CTO-REPORT.md`
+   - `docs/agent-loop/PM-DECISION.md`
+   - `docs/agent-loop/STATE.md`
+2. Use the exact commit message:
+
+   ```text
+   docs: add beta onboarding kit
+   ```
+
+3. Push only `feat/beta-onboarding-kit` to origin; do not alter `main`.
+4. Create one draft PR into `main` titled:
+
+   ```text
+   Roadmap completion: add beta onboarding kit
+   ```
+
+   The body must summarize all six documents, the corrected real lead-review/retention/interview contracts, hard stop gates, verification, docs-only scope, and the legal/real-data/deployment boundary. State that manual product-owner merge is required.
+5. Do not merge or deploy. After handoff, record commit/branch/PR/exact-path/remote-CI evidence in `CTO-REPORT.md` and `STATE.md` as uncommitted relay edits, return ownership to PM, and stop.
+
+### State transition
+
+- State status: `ready_for_cto`
+- Current step: `9.2`
+- Owner: `Codex orchestration for the approved mechanical handoff`
+- Next action: `Create only the exact nine-file Step 9.2 commit, feature push, and draft PR; then stop for remote review.`
+
+## Step 9.2 correction required — 2026-08-27
+
+- Decision: `CORRECTION_REQUIRED`
+- Owner: `Claude Code (CTO)`
+- Baseline: preserve the current `feat/beta-onboarding-kit` worktree at exact `origin/main` `1660a833e05bfaca98577f83de47915d96479a3c` and correct Step 9.2 only.
+- PM review result: the six-file kit is comprehensive and within scope, but it is not yet specific enough to use unedited because three statements conflict with actual supported operations or overpromise handling.
+- Execution mode: `Docs-only local correction and verification. Do not commit, push, create a PR, merge, deploy, or modify product/configuration/dependency/schema/migration files.`
+
+### Required corrections
+
+1. In `docs/beta/first-14-days-runbook.md`, remove every reference to a pilot-form “inbox” or a submission “arriving.” The live form only writes retained rows to PostgreSQL; there is no email notification, lead inbox, or dashboard reader. Add an exact, privacy-conscious operator workflow that uses the existing production Compose/PostgreSQL contract to review only active, unexpired `leads` rows from a restricted server terminal. It must use Compose v2 with `/secure/path/to/tozalist.production.env`, avoid printing environment variables or credentials, state that the output contains personal data and must not be copied into chat, relay files, source control, or analytics, limit the result set, and explain how the daily tracker is updated without copying raw contact fields into the repository. Do not add product code or invent a nonexistent UI/API.
+2. In `docs/beta/onboarding-checklist.md`, make the retention choice executable against the actual product: allow exactly `7`, `30`, or `90` days, with `30` as the default. Replace the unrestricted blank-day choice with explicit supported choices and prevent unsupported values such as 45 days.
+3. In `docs/beta/interview-script.md`, replace “Everything stays between us” with a truthful, narrow statement describing internal research-note use and the no-customer-data rule. Do not promise confidentiality, secrecy, deletion, legal status, or data handling beyond what the current product/policy actually guarantees.
+4. Preserve all other Step 9.2 content and the exact nine-path final scope: the six `docs/beta/` files plus `CTO-REPORT.md`, `PM-DECISION.md`, and `STATE.md`. No other path may change.
+
+### Required verification
+
+1. Re-read the corrected operational commands against `docker-compose.prod.yml`, `packages/db/src/schema/leads.ts`, and the supported `7/30/90` API/dashboard retention contract.
+2. Confirm the runbook contains no `inbox`, notification, invented lead UI/API, credential-printing instruction, or raw-personal-data copying instruction.
+3. Re-run the original six Step 9.2 checks, including `pnpm secret-scan`, `pnpm format:check`, and `git diff --check`.
+4. Update `CTO-REPORT.md` with exact correction evidence, set `STATE.md` to `awaiting_pm_review` with PM ownership, and stop. No Git handoff is authorized.
+
+### State transition
+
+- State status: `ready_for_cto`
+- Current step: `9.2`
+- Owner: `Claude Code (CTO)`
+- Next action: `Correct only the three reviewed Step 9.2 documents, re-run the required checks, update the relay, and stop.`
+
+## Step 9.1 merge verification and Step 9.2 authorization — 2026-08-27
+
+### Step 9.1 merge verification
+
+- Decision: `APPROVED`
+- PR #10: `MERGED` at `2026-08-27T07:35:43Z`.
+- Merged main: `origin/main` is merge commit `1660a833e05bfaca98577f83de47915d96479a3c`; approved Step 9.1 commit `de2021df036bf5eb7cdfd9939052dc7d59afb2ca` is confirmed reachable from it.
+- Remote diff: `PASS — exactly the 23 PM-authorized Step 9.1 paths.`
+- Remote CI: `PASS — push run 33049433635 and pull-request run 33049479526 both completed successfully for de2021d.`
+- Step 9.1 status: `COMPLETE`.
+
+### Step 9.2 — beta onboarding kit
+
+- Decision: `APPROVED`
+- Owner: `Claude Code (CTO)`
+- Execution mode: `Docs-only local implementation and verification. Do not commit, push, create a PR, merge, deploy, enable SMTP, process real customer data, add payments, change legal/privacy policy, or modify product code/configuration/dependencies.`
+
+#### Authorized scope
+
+1. Preserve the three uncommitted relay records and create/switch to `feat/beta-onboarding-kit` from exact `origin/main` `1660a833e05bfaca98577f83de47915d96479a3c`. Stop on any baseline or worktree discrepancy.
+2. Create only these six product documents under `docs/beta/`, plus the three relay-record updates:
+   - `onboarding-checklist.md`
+   - `interview-script.md`
+   - `accuracy-measurement.md`
+   - `weekly-report-template.md`
+   - `stop-criteria.md`
+   - `first-14-days-runbook.md`
+3. Implement every Step 9.2 roadmap requirement and acceptance criterion. Make each document specific enough to use without rewriting, with checkboxes/tables/scripts where they improve execution.
+4. Preserve the safety boundary: interviews never request raw personal data; lawful real-list measurement requires documented consent basis and partner authorization; `unknown` is excluded from accuracy scoring; no document may claim legal clearance, production readiness, guaranteed accuracy, or permission to process real customer data.
+5. Write the day-14, week-10, and week-13 stop criteria as hard pass/fail gates with explicit pause-and-reassess actions, not aspirations.
+6. Do not alter roadmap order, product code, configuration, dependencies, lockfiles, schemas, migrations, deployment files, SMTP, payments, or legal/privacy policy.
+
+#### Required verification
+
+1. Confirm the exact authorized path set and no out-of-scope diff.
+2. Confirm all six files exist and contain no `TODO`, `TBD`, placeholder, secret, raw personal-data fixture, or unsupported legal/accuracy claim.
+3. Confirm the five kit documents plus the first-14-days runbook cover every item in Step 9.2 and cross-reference one another consistently.
+4. Run `pnpm secret-scan`.
+5. Run `pnpm format:check`.
+6. Run `git diff --check`.
+
+#### Reporting and stop rule
+
+- Write exact file/coverage/verification evidence to `docs/agent-loop/CTO-REPORT.md`.
+- Set `STATE.md` to `awaiting_pm_review`, owner PM, and stop.
+- Do not perform a Git handoff or any external action in this execution.
+
+### State transition
+
+- State status: `ready_for_cto`
+- Current step: `9.2`
+- Owner: `Claude Code (CTO)`
+- Next action: `Implement and locally verify only the six-file Step 9.2 beta onboarding kit, update the relay, and stop.`
+
 ## Step 9.1 local approval and Git/PR handoff — 2026-08-27
 
 - Decision: `APPROVED`
