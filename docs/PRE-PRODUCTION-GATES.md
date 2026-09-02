@@ -19,9 +19,26 @@ None of these are authorized inside Phase 8 implementation work.
 
 ## 2. Lighthouse ≥ 95 (performance/accessibility)
 
-- **Status:** `NOT_RUN` — carried since Phase 6.
-- **Required before launch:** run an actual Lighthouse audit against the built
-  public site and record real scores; the ≥ 95 target is not claimed until then.
+- **Status:** PASSED — audited 2026-09-02 against the production build of
+  `apps/web` at merged `main` `9d01342` (`next build` + `next start`,
+  Lighthouse 12, headless Chrome, `--only-categories` performance,
+  accessibility, best-practices, seo).
+- **Scores** (identical across `/uz`, `/ru`, `/en`):
+
+  | Form factor | Performance | Accessibility | Best practices | SEO |
+  | ----------- | ----------- | ------------- | -------------- | --- |
+  | Desktop     | 100         | 100           | 96             | 100 |
+  | Mobile      | 99          | 100           | 96             | 100 |
+
+- The only best-practices deduction was a console 404 for `/favicon.ico`
+  (no site icon was shipped). An `app/icon.svg` now provides one.
+- Re-run after any change to the public site's layout, fonts, or scripts:
+
+  ```bash
+  pnpm --filter web build && pnpm --filter web start &
+  npx -y lighthouse@12 http://localhost:3000/uz --preset=desktop \
+    --chrome-flags='--headless=new' --output=json --output-path=./lh.json
+  ```
 
 ## 3. Batch-result CSV formula hardening (carried from Step 7.1)
 
