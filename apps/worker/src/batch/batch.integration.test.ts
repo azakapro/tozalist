@@ -664,5 +664,9 @@ describe.skipIf(!hasIntegrationEnv)('batch processor', () => {
     // bounded by the dedup map and chunk buffers.
     const growth = largePeak - smallPeak
     expect(growth).toBeLessThan(40 * 1024 * 1024)
-  }, 240_000)
+    // ~40 s on a normal GitHub runner, but a degraded runner has taken >240 s
+    // for the same code (main run 33050377751). The assertion is about memory,
+    // not speed, so give it wide headroom; the CI job's own 25-minute limit
+    // still bounds a real hang.
+  }, 600_000)
 })
