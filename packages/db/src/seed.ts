@@ -1,5 +1,5 @@
 import { createClient } from './client.js'
-import { loadWorkspaceEnv } from '@tozalist/shared'
+import { loadWorkspaceEnv } from './env.js'
 import { getCreditBalance } from './credits.js'
 import {
   DEMO_USER_EMAIL,

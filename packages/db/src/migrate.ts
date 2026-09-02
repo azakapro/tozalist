@@ -1,5 +1,5 @@
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
-import { loadWorkspaceEnv } from '@tozalist/shared'
+import { loadWorkspaceEnv } from './env.js'
 import { createClient } from './client.js'
 import { hasMigrations } from './migrations.js'
 import { MIGRATIONS_DIR } from './paths.js'

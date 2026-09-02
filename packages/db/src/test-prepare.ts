@@ -1,5 +1,5 @@
 import postgres from 'postgres'
-import { loadWorkspaceEnv } from '@tozalist/shared'
+import { loadWorkspaceEnv } from './env.js'
 import { requireTestDatabaseConfig } from './config.js'
 
 // Local development reads the workspace .env; CI and deployments pass env explicitly.
