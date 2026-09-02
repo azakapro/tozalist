@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -269,6 +270,35 @@ func TestVerifyNoMXRecordsIsAnHonestFalse(t *testing.T) {
 	}
 	if resp.MX.Error != "" {
 		t.Errorf("mx.error = %q, want empty for a successful lookup", resp.MX.Error)
+	}
+}
+
+func TestVerifyNXDOMAINIsAnHonestNoMX(t *testing.T) {
+	// An authoritative "name does not exist" is a completed lookup: the domain
+	// has no mail servers because it has no records at all.
+	stub := &stubVerifier{mxErr: &net.DNSError{Err: "no such host", Name: "gone.test", IsNotFound: true}}
+	s, _ := newTestServer(t, testConfig(), stub)
+
+	resp := decodeResponse(t, postVerify(t, s, `{"email":"a@gone.test"}`))
+	if resp.MX.HasMX == nil || *resp.MX.HasMX {
+		t.Errorf("has_mx = %v, want false for NXDOMAIN", resp.MX.HasMX)
+	}
+	if resp.MX.Error != "" {
+		t.Errorf("mx.error = %q, want empty for NXDOMAIN", resp.MX.Error)
+	}
+}
+
+func TestVerifyDNSServerFailureStaysUnknown(t *testing.T) {
+	// SERVFAIL / temporary failures are NOT NXDOMAIN: the lookup did not complete.
+	stub := &stubVerifier{mxErr: &net.DNSError{Err: "server misbehaving", Name: "flaky.test", IsTemporary: true}}
+	s, _ := newTestServer(t, testConfig(), stub)
+
+	resp := decodeResponse(t, postVerify(t, s, `{"email":"a@flaky.test"}`))
+	if resp.MX.HasMX != nil {
+		t.Errorf("has_mx = %v, want null for a server failure", *resp.MX.HasMX)
+	}
+	if resp.MX.Error == "" {
+		t.Error("mx.error is empty for a server failure")
 	}
 }
 

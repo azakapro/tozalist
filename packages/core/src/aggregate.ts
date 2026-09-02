@@ -120,12 +120,21 @@ function decide({ engine, typo, operationalReason }: AggregateInput): Decision {
     return { verdict: 'invalid', score: 0, reason: 'SYNTAX_INVALID' }
   }
 
-  // 2. The MX lookup itself failed - the domain was never actually examined.
+  // 2. A recognisable provider typo is an offline signal the customer can act
+  //    on right now ("did you mean gmail.com?"). It outranks an unavailable
+  //    lookup: typo domains often have broken or absent nameservers, and
+  //    reporting only "could not look it up" would hide the useful answer.
+  //    Lookup failure remains a secondary caution on that result.
+  if (typo !== null && (mx.error !== '' || mx.has_mx === null)) {
+    return { verdict: 'risky', score: 65, reason: 'POSSIBLE_TYPO' }
+  }
+
+  // 3. The MX lookup itself failed - the domain was never actually examined.
   if (mx.error !== '' || mx.has_mx === null) {
     return { verdict: 'unknown', score: 50, reason: 'MX_LOOKUP_UNAVAILABLE' }
   }
 
-  // 3. Lookup succeeded and the domain advertises no mail servers.
+  // 4. Lookup succeeded and the domain advertises no mail servers.
   if (mx.has_mx === false) {
     return { verdict: 'invalid', score: 5, reason: 'DOMAIN_NO_MX' }
   }
@@ -201,6 +210,7 @@ function secondaryReasons({ engine, typo }: AggregateInput, decision: Decision):
   if (decision.verdict !== 'risky' && decision.verdict !== 'unknown') return []
 
   const candidates: Array<[ReasonCode, boolean]> = [
+    ['MX_LOOKUP_UNAVAILABLE', engine.mx.error !== '' || engine.mx.has_mx === null],
     ['DISPOSABLE_DOMAIN', engine.disposable],
     ['ROLE_ACCOUNT', engine.role_account],
     ['POSSIBLE_TYPO', typo !== null],

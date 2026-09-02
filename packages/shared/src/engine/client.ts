@@ -62,8 +62,13 @@ export type VerifyOptions = {
   requestId?: string | undefined
 }
 
-const NON_SMTP_TIMEOUT_MS = 5_000
-const SMTP_TIMEOUT_MS = 20_000
+// Both budgets exceed the engine's own per-request deadline (VERIFY_TIMEOUT_SECONDS,
+// default 15 s). A domain with broken nameservers can take 8-10 s to fail DNS;
+// the engine then answers 200 with mx.error set, which aggregates to an honest
+// `unknown`. A client budget shorter than the engine's deadline would discard
+// that partial result and turn a slow domain into a hard failure instead.
+const NON_SMTP_TIMEOUT_MS = 20_000
+const SMTP_TIMEOUT_MS = 30_000
 /** Initial attempt + 2 retries. */
 const MAX_ATTEMPTS = 3
 const RETRY_DELAYS_MS = [200, 800] as const
@@ -141,10 +146,10 @@ export class EngineClient {
       }
 
       lastFailure = attempt
-      const retryable =
-        attempt.outcome === 'network_error' ||
-        attempt.outcome === 'http_5xx' ||
-        (attempt.outcome === 'timeout' && !opts.smtp)
+      // A timeout already outlasted the engine's own deadline, so the engine is
+      // wedged rather than merely slow: repeating the call would only stack more
+      // load (and, for SMTP, hit the same mail server again). Never retry it.
+      const retryable = attempt.outcome === 'network_error' || attempt.outcome === 'http_5xx'
 
       if (!retryable || attempts >= MAX_ATTEMPTS) break
 

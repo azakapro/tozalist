@@ -88,4 +88,4 @@ export {
   redactSecretsInText,
 } from './logging.js'
 export { Counter, Gauge, Histogram, MetricsRegistry } from './metrics.js'
-export { assertRequiredEnv } from './env.js'
+export { assertRequiredEnv, loadWorkspaceEnv } from './env.js'

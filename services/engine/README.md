@@ -9,7 +9,7 @@ Internal email-validation sidecar (Go), built on the MIT-licensed
 
 **Internal-only.** The service has no host `ports:` mapping in
 `docker-compose.yml` and must never be exposed publicly. The sole exception is
-local development: `docker-compose.dev.yml` maps it to `127.0.0.1:8080` only
+local development: `docker-compose.override.yml` (auto-loaded in local development) maps it to `127.0.0.1:8080` only
 (loopback, unreachable from the network) so host-run processes can call it.
 Never deploy with that override. Only the API and the
 worker, from inside the Compose network, may call it. Adding a `ports:` entry

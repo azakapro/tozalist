@@ -1,5 +1,5 @@
 import { Redis } from 'ioredis'
-import { assertRequiredEnv } from '@tozalist/shared'
+import { assertRequiredEnv, loadWorkspaceEnv } from '@tozalist/shared'
 import { APP_NAME, EngineClient } from '@tozalist/shared'
 import { createClient } from '@tozalist/db'
 import { buildApp } from './app.js'
@@ -7,6 +7,9 @@ import { readApiConfig } from './config.js'
 import { createObjectStorage, readS3Config } from '@tozalist/shared'
 import { createBatchQueuePublisher, createSmtpQueuePublisher } from './smtp-queue.js'
 import { ensureStorageReady, StorageNotReadyError } from './startup.js'
+
+// Local development reads the workspace .env; deployments pass env explicitly.
+loadWorkspaceEnv()
 
 // Fail fast, listing every missing variable at once (roadmap 8.1).
 assertRequiredEnv(['DATABASE_URL', 'S3_ENDPOINT', 'S3_ACCESS_KEY', 'S3_SECRET_KEY', 'S3_BUCKET'])

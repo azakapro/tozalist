@@ -1,4 +1,5 @@
 import { createClient } from './client.js'
+import { loadWorkspaceEnv } from '@tozalist/shared'
 import { getCreditBalance } from './credits.js'
 import {
   DEMO_USER_EMAIL,
@@ -6,6 +7,9 @@ import {
   seedDemoData,
   type SeedResult,
 } from './seed-data.js'
+
+// Local development reads the workspace .env; CI and deployments pass env explicitly.
+loadWorkspaceEnv()
 
 /**
  * Seed entrypoint for local development.
