@@ -88,6 +88,11 @@ pnpm db:seed                    # prints a local API key ONCE
 pnpm dev                        # api :3001, worker, web :3000, dashboard :3002
 ```
 
+Fastest way to see it work, no account needed: in a second terminal run
+`pnpm try` and open http://localhost:3005 — one input, type an email, get a
+verdict. It mints a temporary key for the seeded demo organisation and revokes
+it when you press Ctrl+C.
+
 Then try it:
 
 ```bash
