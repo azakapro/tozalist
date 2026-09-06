@@ -114,11 +114,38 @@ describe('detectTypo', () => {
       expect(detectTypo('yandex.kz')).toBeNull()
     })
 
-    it('is stricter with short domains where two edits rewrite too much', () => {
-      // xy.ru is nothing in particular; at length 5 only one edit is allowed,
-      // so it must not be pulled two edits over to bk.ru.
+    it('never distance-matches short domains: they sit too close to real companies', () => {
+      // xy.ru / kb.ru are nothing in particular and must not be pulled to bk.ru.
       expect(detectTypo('xy.ru')).toBeNull()
       expect(detectTypo('kb.ru')).toBeNull()
+      // Real short corporate domains one edit from a provider stay untouched.
+      expect(detectTypo('gm.com')).toBeNull() // not gmx.com
+      expect(detectTypo('ibm.com')).toBeNull() // not aol.com
+      expect(detectTypo('hp.com')).toBeNull() // not me.com
+      expect(detectTypo('bbc.com')).toBeNull() // not qq.com
+      // Eight-character brands two edits from a provider stay untouched too.
+      expect(detectTypo('tesla.com')).toBeNull() // not telia.com
+      expect(detectTypo('sony.com')).toBeNull() // not sky.com
+      expect(detectTypo('meta.com')).toBeNull() // not me.com
+      expect(detectTypo('wise.com')).toBeNull() // not live.com
+      expect(detectTypo('nike.com')).toBeNull() // not live.com
+      // The explicit maps still work for short providers.
+      expect(detectTypo('aol.con')).toBe('aol.com')
+      expect(detectTypo('qq.cmo')).toBe('qq.com')
+    })
+
+    it('covers the expanded provider list', () => {
+      expect(KNOWN_PROVIDER_DOMAINS.length).toBeGreaterThan(300)
+      expect(detectTypo('googlemial.com')).toBe('googlemail.com')
+      expect(detectTypo('comcsat.net')).toBe('comcast.net')
+      expect(detectTypo('ukr.nett')).toBe('ukr.net')
+      expect(detectTypo('seznam.czz')).toBe('seznam.cz')
+      expect(detectTypo('rediffmail.con')).toBe('rediffmail.com')
+      expect(detectTypo('yahoo.co.ukk')).toBe('yahoo.co.uk')
+      // Regional variants are known destinations, not typos of the .com.
+      expect(detectTypo('hotmail.co.uk')).toBeNull()
+      expect(detectTypo('yahoo.co.jp')).toBeNull()
+      expect(detectTypo('mail.com')).toBeNull()
     })
   })
 
