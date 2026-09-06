@@ -8,6 +8,13 @@ import createMDX from '@next/mdx'
  */
 const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
+// React's development tooling (error overlay, source-mapped stacks) needs
+// eval(); production builds never use it, so the directive exists only in dev.
+const SCRIPT_SRC =
+  process.env.NODE_ENV === 'production'
+    ? "script-src 'self' 'unsafe-inline'"
+    : "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+
 const SECURITY_HEADERS = [
   { key: 'Strict-Transport-Security', value: 'max-age=15552000; includeSubDomains' },
   { key: 'X-Frame-Options', value: 'DENY' },
@@ -16,7 +23,7 @@ const SECURITY_HEADERS = [
   {
     key: 'Content-Security-Policy',
     value:
-      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+      `default-src 'self'; ${SCRIPT_SRC}; style-src 'self' 'unsafe-inline'; ` +
       `img-src 'self' data:; connect-src 'self' ${API_ORIGIN}; frame-ancestors 'none'; ` +
       "base-uri 'self'; form-action 'self'",
   },
