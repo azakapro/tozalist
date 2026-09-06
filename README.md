@@ -113,7 +113,9 @@ SMTP (which is what tells you whether `someone@gmail.com` exists):
 4. Restart `docker compose up -d engine` and `pnpm dev`. `pnpm try` now waits for
    the probe: a missing Gmail mailbox returns `invalid` / `MAILBOX_REJECTED`, an
    existing one `valid`. Providers that accept every recipient (mail.ru does)
-   are reported as `unknown` / `CATCH_ALL_DOMAIN`, honestly.
+   are reported as `unknown` / `CATCH_ALL_DOMAIN`, and a provider that refuses
+   to talk to your IP (iCloud does this for many residential ranges) as
+   `unknown` / `SMTP_UNAVAILABLE` - the probe never guesses.
 
 Then try it:
 

@@ -65,20 +65,16 @@ func (a *aftershipVerifier) CheckMX(ctx context.Context, domain string) (*emailv
 	})
 }
 
+// CheckSMTP runs the engine's own mailbox probe (see smtpprobe.go) rather than
+// the library's: the library cannot tell "the server refused to talk to us"
+// apart from "the domain accepts every address", and reported the former as a
+// catch-all finding.
 func (a *aftershipVerifier) CheckSMTP(ctx context.Context, domain, username string, catchAll bool) (*emailverifier.SMTP, error) {
-	probe := emailverifier.NewVerifier().
-		EnableSMTPCheck().
-		DisableCatchAllCheck().
-		HelloName(a.cfg.SMTPHelloDomain).
-		FromEmail(a.cfg.SMTPProbeFrom).
-		ConnectTimeout(a.cfg.VerifyTimeout).
-		OperationTimeout(a.cfg.VerifyTimeout)
-	if catchAll {
-		probe.EnableCatchAllCheck()
-	}
-
-	return await(ctx, func() (*emailverifier.SMTP, error) {
-		return probe.CheckSMTP(domain, username)
+	return probeMailbox(ctx, domain, username, smtpProbeOptions{
+		helloDomain: a.cfg.SMTPHelloDomain,
+		fromAddress: a.cfg.SMTPProbeFrom,
+		timeout:     a.cfg.VerifyTimeout,
+		catchAll:    catchAll,
 	})
 }
 

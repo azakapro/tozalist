@@ -66,6 +66,13 @@ Contract rules:
   failure is never reported as "no MX records".
 - `smtp.mailbox_accepted` is a low-level protocol signal (RCPT TO accepted),
   not a delivery promise. Catch-all servers accept everything.
+- The SMTP conversation is the engine's own (`smtpprobe.go`), not the
+  library's: a random recipient is tried first, and only a `2xx` there means
+  `catch_all=true`. A policy refusal (`5.7.x`, blocklists), a `4xx`, or any
+  other non-mailbox reply ends the probe with `smtp.error` set to a short
+  categorised message such as `probe blocked by the mail server at RCPT
+  (catch-all test) (550)` - never a verdict, never the recipient, never the
+  server's free text.
 - Lookup timeouts return HTTP 200 with the partial results that were safely
   available and a timeout description in `mx.error` / `smtp.error` - never a
   5xx solely because a lookup timed out.

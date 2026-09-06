@@ -130,6 +130,12 @@ func describeLookupError(err error, cfg config) string {
 		return "cancelled: request aborted before the lookup finished"
 	}
 
+	// The engine's own probe already produces a safe, categorised message.
+	var pe *probeError
+	if errors.As(err, &pe) {
+		return pe.Error()
+	}
+
 	message := err.Error()
 	// The library formats DNS problems via LookupError; net.DNSError messages
 	// contain only the domain, which is allowed in responses and logs.
