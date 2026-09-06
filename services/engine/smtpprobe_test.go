@@ -14,10 +14,11 @@ import (
 // fakeSMTP is a scripted SMTP server: it greets, answers EHLO, and replies to
 // each RCPT TO with the next line from rcptReplies (repeating the last one).
 type fakeSMTP struct {
-	addr        string
-	rcptReplies []string
-	mailReply   string
-	seen        []string
+	addr         string
+	rcptReplies  []string
+	mailReply    string
+	seen         []string
+	advertiseTLS bool
 }
 
 func startFakeSMTP(t *testing.T, rcptReplies []string, mailReply string) *fakeSMTP {
@@ -45,6 +46,10 @@ func (f *fakeSMTP) serve(conn net.Conn) {
 	w := bufio.NewWriter(conn)
 	r := bufio.NewReader(conn)
 	write := func(s string) { _, _ = w.WriteString(s + "\r\n"); _ = w.Flush() }
+	if strings.HasPrefix(f.mailReply, "GREETING:") {
+		write(strings.TrimPrefix(f.mailReply, "GREETING:"))
+		return
+	}
 	write("220 fake.test ESMTP")
 	rcpt := 0
 	for {
@@ -57,9 +62,17 @@ func (f *fakeSMTP) serve(conn net.Conn) {
 		switch {
 		case strings.HasPrefix(upper, "EHLO"), strings.HasPrefix(upper, "HELO"):
 			write("250-fake.test")
+			if f.advertiseTLS {
+				write("250-STARTTLS")
+			}
 			write("250 PIPELINING")
+		case strings.HasPrefix(upper, "STARTTLS"):
+			// Say yes, then talk plain text: the client's TLS handshake fails.
+			write("220 Ready to start TLS")
+			write("garbage that is not a TLS record")
 		case strings.HasPrefix(upper, "MAIL FROM"):
-			if f.mailReply != "" {
+			f.seen = append(f.seen, line)
+			if f.mailReply != "" && !strings.HasPrefix(f.mailReply, "GREETING:") {
 				write(f.mailReply)
 			} else {
 				write("250 2.1.0 Ok")
@@ -79,6 +92,16 @@ func (f *fakeSMTP) serve(conn net.Conn) {
 			write("250 Ok")
 		}
 	}
+}
+
+func rcptLines(f *fakeSMTP) []string {
+	var out []string
+	for _, l := range f.seen {
+		if strings.HasPrefix(strings.ToUpper(l), "RCPT") {
+			out = append(out, l)
+		}
+	}
+	return out
 }
 
 func probeAgainst(t *testing.T, f *fakeSMTP, username string, catchAll bool) (accepted, isCatchAll, full, disabled bool, err error) {
@@ -108,8 +131,8 @@ func TestProbeRealMailboxAccepted(t *testing.T) {
 	if catchAll || !accepted {
 		t.Errorf("accepted=%v catch_all=%v, want accepted and not catch-all", accepted, catchAll)
 	}
-	if len(f.seen) != 2 || !strings.Contains(f.seen[0], "random-probe@") || !strings.Contains(f.seen[1], "alice@") {
-		t.Errorf("unexpected RCPT sequence: %v", f.seen)
+	if rcpts := rcptLines(f); len(rcpts) != 2 || !strings.Contains(rcpts[0], "random-probe@") || !strings.Contains(rcpts[1], "alice@") {
+		t.Errorf("unexpected RCPT sequence: %v", rcpts)
 	}
 }
 
@@ -133,8 +156,8 @@ func TestProbeCatchAllWhenRandomAccepted(t *testing.T) {
 	if !catchAll {
 		t.Error("random recipient was accepted; expected catch_all=true")
 	}
-	if len(f.seen) != 1 {
-		t.Errorf("a catch-all domain must not be probed for the real mailbox; RCPTs: %v", f.seen)
+	if rcpts := rcptLines(f); len(rcpts) != 1 {
+		t.Errorf("a catch-all domain must not be probed for the real mailbox; RCPTs: %v", rcpts)
 	}
 }
 
@@ -186,8 +209,8 @@ func TestProbeWithoutCatchAllCheckDoesNotClaimCatchAll(t *testing.T) {
 	if catchAll || !accepted {
 		t.Errorf("accepted=%v catch_all=%v; without the check catch_all must stay false", accepted, catchAll)
 	}
-	if len(f.seen) != 1 || !strings.Contains(f.seen[0], "alice@") {
-		t.Errorf("only the real mailbox should be probed: %v", f.seen)
+	if rcpts := rcptLines(f); len(rcpts) != 1 || !strings.Contains(rcpts[0], "alice@") {
+		t.Errorf("only the real mailbox should be probed: %v", rcpts)
 	}
 }
 
@@ -197,6 +220,63 @@ func TestProbeMailFromRefusedIsAnError(t *testing.T) {
 	var pe *probeError
 	if !errors.As(err, &pe) || pe.kind != replyBlocked || pe.stage != "MAIL FROM" {
 		t.Fatalf("expected a blocked probeError at MAIL FROM, got %v", err)
+	}
+}
+
+func TestProbeGreetingRejectIsCategorised(t *testing.T) {
+	// gmx.net greets blocklisted IPs with "421 ... Administrative reject" and
+	// a URL carrying the caller's IP. That must surface as a category, not text.
+	f := startFakeSMTP(t, []string{"250 Ok"}, "GREETING:421 gmx.net Nemesis ESMTP Service not available; visit https://postmaster.example/case?ip=203.0.113.9")
+	_, _, _, _, err := probeAgainst(t, f, "alice", true)
+	var pe *probeError
+	if !errors.As(err, &pe) || pe.stage != "greeting" || pe.kind != replyTemporary {
+		t.Fatalf("expected a temporary probeError at greeting, got %v", err)
+	}
+	if strings.Contains(err.Error(), "203.0.113.9") || strings.Contains(err.Error(), "postmaster.example") {
+		t.Errorf("greeting text leaked: %q", err.Error())
+	}
+}
+
+func TestProbeTemporaryFormUserUnknownIsRejected(t *testing.T) {
+	// umail.uz (Postfix) answers unknown recipients with 450 4.1.1.
+	f := startFakeSMTP(t, []string{"450 4.1.1 <x@example.test>: Recipient address rejected: User unknown in virtual mailbox table"}, "")
+	accepted, catchAll, _, _, err := probeAgainst(t, f, "nobody", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if catchAll || accepted {
+		t.Errorf("accepted=%v catch_all=%v, want rejected", accepted, catchAll)
+	}
+}
+
+func TestProbeNullSender(t *testing.T) {
+	f := startFakeSMTP(t, []string{"550 5.1.1 no such user", "250 Ok"}, "")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := probeMailbox(ctx, "example.test", "alice", smtpProbeOptions{hosts: []string{f.addr}, helloDomain: "probe.test", fromAddress: "<>", timeout: 3 * time.Second, catchAll: true, randomSuffix: func(d string) string { return "r@" + d }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mailFrom string
+	for _, l := range f.seen {
+		if strings.HasPrefix(strings.ToUpper(l), "MAIL FROM") {
+			mailFrom = l
+		}
+	}
+	if !strings.Contains(mailFrom, "<>") {
+		t.Errorf("expected the null sender, sent %q", mailFrom)
+	}
+}
+
+func TestProbeRetriesWithoutTLSWhenStartTLSFails(t *testing.T) {
+	f := startFakeSMTP(t, []string{"550 5.1.1 no such user", "250 Ok"}, "")
+	f.advertiseTLS = true
+	accepted, _, _, _, err := probeAgainst(t, f, "alice", true)
+	if err != nil {
+		t.Fatalf("expected a plain-text retry to succeed, got %v", err)
+	}
+	if !accepted {
+		t.Error("mailbox should be accepted on the plain-text retry")
 	}
 }
 

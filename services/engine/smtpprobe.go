@@ -88,6 +88,12 @@ func classifyReply(err error) (replyKind, int) {
 		if strings.HasPrefix(enhanced, "4.2.2") || contains(fullWords) {
 			return replyFull, code
 		}
+		// Some Postfix deployments answer unknown recipients with the temporary
+		// form ("450 4.1.1 ... User unknown in virtual mailbox table"). The
+		// enhanced code x.1.1 means "bad destination mailbox" either way.
+		if strings.HasPrefix(enhanced, "4.1.1") || contains(unknownWords) {
+			return replyUnknown, code
+		}
 		return replyTemporary, code
 	case strings.HasPrefix(enhanced, "5.7.") || contains(blockedWords):
 		return replyBlocked, code
@@ -160,7 +166,10 @@ func probeMailbox(ctx context.Context, domain, username string, opts smtpProbeOp
 
 	var lastErr error
 	for _, addr := range hosts {
-		result, err := probeOneHost(ctx, addr, domain, username, opts, timeout)
+		result, err := probeOneHost(ctx, addr, domain, username, opts, timeout, true)
+		if errors.Is(err, errRetryWithoutTLS) {
+			result, err = probeOneHost(ctx, addr, domain, username, opts, timeout, false)
+		}
 		if err == nil {
 			return result, nil
 		}
@@ -180,7 +189,11 @@ func probeMailbox(ctx context.Context, domain, username string, opts smtpProbeOp
 	return nil, lastErr
 }
 
-func probeOneHost(ctx context.Context, addr, domain, username string, opts smtpProbeOptions, timeout time.Duration) (*emailverifier.SMTP, error) {
+// errRetryWithoutTLS signals that the STARTTLS upgrade failed on a host that
+// otherwise answered; the caller redials it in plain text.
+var errRetryWithoutTLS = errors.New("starttls failed")
+
+func probeOneHost(ctx context.Context, addr, domain, username string, opts smtpProbeOptions, timeout time.Duration, tryTLS bool) (*emailverifier.SMTP, error) {
 	dialer := net.Dialer{Timeout: timeout}
 	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
@@ -203,6 +216,12 @@ func probeOneHost(ctx context.Context, addr, domain, username string, opts smtpP
 	host, _, _ := net.SplitHostPort(addr)
 	client, err := smtp.NewClient(conn, host)
 	if err != nil {
+		// A 4xx/5xx greeting ("421 ... Administrative reject") is the server
+		// refusing us before any command; categorise it rather than echo it.
+		var tpErr *textproto.Error
+		if errors.As(err, &tpErr) {
+			return nil, stageError("greeting", err)
+		}
 		return nil, err
 	}
 	defer client.Close()
@@ -211,11 +230,21 @@ func probeOneHost(ctx context.Context, addr, domain, username string, opts smtpP
 		return nil, stageError("HELO", err)
 	}
 	// Opportunistic TLS: some providers insist on it before accepting RCPT.
-	// A failed upgrade is not fatal; the plain session continues.
-	if ok, _ := client.Extension("STARTTLS"); ok {
-		_ = client.StartTLS(&tls.Config{ServerName: host, MinVersion: tls.VersionTLS12})
+	// A failed upgrade (bad certificate, handshake error) leaves the socket
+	// unusable, so the caller retries this host once without TLS.
+	if ok, _ := client.Extension("STARTTLS"); ok && tryTLS {
+		if err := client.StartTLS(&tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}); err != nil {
+			return nil, errRetryWithoutTLS
+		}
 	}
-	if err := client.Mail(opts.fromAddress); err != nil {
+	// "<>" is the null (bounce) sender: the conventional identity for a
+	// verification probe, and the only one that passes sender-domain checks
+	// when the probing domain has no DNS presence of its own.
+	from := opts.fromAddress
+	if from == "<>" {
+		from = ""
+	}
+	if err := client.Mail(from); err != nil {
 		return nil, stageError("MAIL FROM", err)
 	}
 

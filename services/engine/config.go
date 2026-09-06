@@ -78,8 +78,9 @@ func loadConfig(getenv func(string) string) (config, error) {
 		if cfg.SMTPHelloDomain == "" {
 			return config{}, fmt.Errorf("SMTP_HELO_DOMAIN must be set when SMTP_ENABLED=true")
 		}
+		// "<>" (the null bounce sender) is an accepted, and often the best, value.
 		if cfg.SMTPProbeFrom == "" {
-			return config{}, fmt.Errorf("SMTP_PROBE_FROM must be set when SMTP_ENABLED=true")
+			return config{}, fmt.Errorf("SMTP_PROBE_FROM must be set when SMTP_ENABLED=true (use <> for the null sender)")
 		}
 	}
 

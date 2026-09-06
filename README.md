@@ -102,8 +102,9 @@ SMTP (which is what tells you whether `someone@gmail.com` exists):
 1. Your network must allow outbound port 25. Test with
    `nc -z -G 5 gmail-smtp-in.l.google.com 25`; most home connections work,
    most cloud VPS providers block it until you ask.
-2. In `.env` set `SMTP_ENABLED=true`, and give the probe a real identity:
-   `SMTP_HELO_DOMAIN=yourdomain.example` and `SMTP_PROBE_FROM=postmaster@yourdomain.example`.
+2. In `.env` set `SMTP_ENABLED=true`. Keep `SMTP_PROBE_FROM=<>` (the null
+   bounce sender: strict servers reject any sender domain that has no DNS
+   records) and set `SMTP_HELO_DOMAIN` to a hostname you control.
 3. Enable it for the demo organisation (it is per-organisation by design):
 
    ```bash
@@ -114,8 +115,15 @@ SMTP (which is what tells you whether `someone@gmail.com` exists):
    the probe: a missing Gmail mailbox returns `invalid` / `MAILBOX_REJECTED`, an
    existing one `valid`. Providers that accept every recipient (mail.ru does)
    are reported as `unknown` / `CATCH_ALL_DOMAIN`, and a provider that refuses
-   to talk to your IP (iCloud does this for many residential ranges) as
-   `unknown` / `SMTP_UNAVAILABLE` - the probe never guesses.
+   to talk to your IP as `unknown` / `SMTP_UNAVAILABLE` - the probe never
+   guesses.
+
+What to expect from a **home connection**: Gmail, Proton, Zoho, and most
+self-hosted Postfix servers answer honestly; Microsoft (outlook/hotmail),
+Yahoo, AOL, GMX, iCloud, and Yandex refuse residential IPs outright. From a
+**server with a clean IP, reverse DNS, and an SPF record for the HELO domain**,
+most of those answer too; Microsoft and Yahoo may still throttle a new IP for
+a few days. Nothing makes mail.ru answer: it accepts every recipient by design.
 
 Then try it:
 
