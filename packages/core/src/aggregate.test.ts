@@ -251,17 +251,42 @@ describe('aggregate - priority order', () => {
     expect(result.reasonCodes).toEqual(['SYNTAX_INVALID'])
   })
 
-  it('MX failure beats catch-all, disposable and typo', () => {
+  it('MX failure beats catch-all and disposable', () => {
     const result = run(
       engineResponse({
         mx: { has_mx: null, records: [], error: 'dns down' },
         smtp: smtp({ catch_all: true }),
         disposable: true,
       }),
-      'gmail.com',
     )
     expect(result.verdict).toBe('unknown')
     expect(result.reasonCodes[0]).toBe('MX_LOOKUP_UNAVAILABLE')
+  })
+
+  it('a provider typo beats MX failure: the actionable signal decides, the failed lookup is noted', () => {
+    const result = run(
+      engineResponse({
+        syntax: { valid: true, username: 'user', domain: 'gmial.com' },
+        mx: { has_mx: null, records: [], error: 'lookup failed: server misbehaving' },
+        disposable: true,
+      }),
+      'gmail.com',
+    )
+    expect(result.verdict).toBe('risky')
+    expect(result.score).toBe(65)
+    expect(result.reasonCodes).toEqual([
+      'POSSIBLE_TYPO',
+      'MX_LOOKUP_UNAVAILABLE',
+      'DISPOSABLE_DOMAIN',
+    ])
+  })
+
+  it('a typo with a completed lookup that found no MX is still invalid (no-MX is hard evidence)', () => {
+    const result = run(
+      engineResponse({ mx: { has_mx: false, records: [], error: '' } }),
+      'gmail.com',
+    )
+    expect(result).toMatchObject({ verdict: 'invalid', score: 5, reasonCodes: ['DOMAIN_NO_MX'] })
   })
 
   it('no-MX beats SMTP signals and cautions', () => {

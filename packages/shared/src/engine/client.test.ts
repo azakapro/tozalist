@@ -133,13 +133,13 @@ describe('EngineClient success path', () => {
     await client.verify('user@example.com', { smtp: true, catchAll: true })
 
     expect(JSON.parse(requests[0]?.body ?? '')).toMatchObject({ smtp: true, catch_all: true })
-    expect(requests[0]?.timeoutMs).toBe(20_000)
+    expect(requests[0]?.timeoutMs).toBe(30_000)
   })
 
-  it('uses the 5 second timeout for non-SMTP requests', async () => {
+  it('uses the 20 second timeout for non-SMTP requests', async () => {
     const { client, requests } = makeClient([{ kind: 'ok' }])
     await client.verify('user@example.com', OPTS)
-    expect(requests[0]?.timeoutMs).toBe(5_000)
+    expect(requests[0]?.timeoutMs).toBe(20_000)
   })
 })
 
@@ -279,12 +279,12 @@ describe('EngineClient retries', () => {
     expect(delays).toEqual([])
   })
 
-  it('retries a non-SMTP timeout under the normal policy', async () => {
+  it('never retries a non-SMTP timeout either: the engine deadline already passed', async () => {
     const { client, requests, delays } = makeClient([{ kind: 'timeout' }, { kind: 'ok' }])
 
-    await client.verify('user@example.com', OPTS)
-    expect(requests).toHaveLength(2)
-    expect(delays).toEqual([200])
+    await expect(client.verify('user@example.com', OPTS)).rejects.toBeInstanceOf(EngineTimeoutError)
+    expect(requests).toHaveLength(1)
+    expect(delays).toEqual([])
   })
 
   it('does not retry contract drift', async () => {

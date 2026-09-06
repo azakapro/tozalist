@@ -1,0 +1,14 @@
+# LOCAL DEVELOPMENT ONLY - never deploy with this file.
+#
+# Docker Compose loads this override automatically alongside docker-compose.yml
+# (plain `docker compose up -d`), so a fresh clone can reach the engine from
+# API and worker processes running directly on the developer's machine.
+# Production uses `-f docker-compose.prod.yml` explicitly, which disables this
+# automatic override; there the engine keeps no host port at all.
+#
+# The 127.0.0.1 bind means the engine is reachable only from this machine,
+# never from the local network. `.env.example` points ENGINE_URL here.
+services:
+  engine:
+    ports:
+      - '127.0.0.1:8080:8080'

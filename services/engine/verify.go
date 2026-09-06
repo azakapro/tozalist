@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"net"
 	"strings"
 	"time"
 
@@ -48,9 +49,18 @@ func runVerify(ctx context.Context, v verifier, cfg config, req verifyRequest, n
 // lookupMX maps the library's MX result onto the contract. A lookup failure is
 // never reported as has_mx=false - the domain might have MX records we simply
 // could not see - so has_mx becomes null and mx.error says why.
+//
+// The one exception is an authoritative NXDOMAIN: the resolver answered, and
+// the answer is that the name does not exist. That is a successful lookup of a
+// domain with no mail servers (has_mx=false), not an unavailable lookup.
+// Timeouts, SERVFAIL, and network errors stay null.
 func lookupMX(ctx context.Context, v verifier, domain string, cfg config) mxResult {
 	mx, err := v.CheckMX(ctx, domain)
 	if err != nil {
+		var dnsErr *net.DNSError
+		if errors.As(err, &dnsErr) && dnsErr.IsNotFound {
+			return mxResult{HasMX: boolPtr(false), Records: []string{}, Error: ""}
+		}
 		return mxResult{
 			HasMX:   nil,
 			Records: []string{},

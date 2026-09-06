@@ -295,6 +295,9 @@ importers:
       '@node-rs/argon2':
         specifier: ^2.1.0
         version: 2.1.0
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(gel@2.2.0)(postgres@3.4.9)
@@ -305,9 +308,6 @@ importers:
       '@types/node':
         specifier: ^20.17.12
         version: 20.19.43
-      dotenv:
-        specifier: ^17.4.2
-        version: 17.4.2
       drizzle-kit:
         specifier: ^0.30.1
         version: 0.30.6
@@ -332,6 +332,9 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.1116.0
         version: 3.1116.0
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
       zod:
         specifier: ^4.4.3
         version: 4.4.3

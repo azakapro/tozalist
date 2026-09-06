@@ -6,6 +6,7 @@ import {
   assertRequiredEnv,
   createObjectStorage,
   EngineClient,
+  loadWorkspaceEnv,
   readS3Config,
   redactedLoggerOptions,
 } from '@tozalist/shared'
@@ -34,6 +35,8 @@ import type { EngineVerifier } from './smtp/types.js'
  */
 // Redaction is mandatory: secret-key censoring + deep email scrubbing.
 // Fail fast, listing every missing variable at once (roadmap 8.1).
+// Local development reads the workspace .env; deployments pass env explicitly.
+loadWorkspaceEnv()
 assertRequiredEnv(['DATABASE_URL', 'S3_ENDPOINT', 'S3_ACCESS_KEY', 'S3_SECRET_KEY', 'S3_BUCKET'])
 
 const logger = pino({ base: null, ...redactedLoggerOptions() })
