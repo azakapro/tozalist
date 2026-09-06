@@ -15,7 +15,8 @@
     "revoke-key": "tsx src/cli/revoke-key.ts",
     "export-openapi": "tsx scripts/export-openapi.ts",
     "billing-grant": "tsx src/cli/billing-grant.ts",
-    "billing-statement": "tsx src/cli/billing-statement.ts"
+    "billing-statement": "tsx src/cli/billing-statement.ts",
+    "try": "tsx src/cli/try.ts"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.2",
