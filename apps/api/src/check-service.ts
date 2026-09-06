@@ -3,6 +3,7 @@ import {
   createEmailCheckWithDebit,
   createPhoneCheckWithDebit,
   findRecentEmailCheck,
+  getOrgSettings,
   getCreditBalance,
   sha256Hex,
   updateEmailCheckSnapshot,
@@ -63,14 +64,35 @@ export async function performEmailCheck(
   if (cachedRow !== undefined) {
     const snapshot = parseStoredEmailCheck(cachedRow.checksJson)
     if (snapshot === null) return { kind: 'snapshot_unreadable' }
+
+    // A cached offline-only result does not satisfy a request for a mailbox
+    // probe. When every switch allows probing, attach the probe to the cached
+    // check instead of returning "skipped": still a cache hit, still free, and
+    // the worker completes the very same row. A probe already pending or
+    // complete is returned as-is.
+    let smtpStatus: SmtpStatus = snapshot.smtp_status
+    if (input.smtp && deps.smtpEnabled && snapshot.smtp_status === 'skipped') {
+      const org = await getOrgSettings(deps.db, orgId)
+      if (org?.smtpEnabled === true) {
+        const pending: StoredEmailCheck = { ...snapshot, smtp_status: 'pending' }
+        await updateEmailCheckSnapshot(deps.db, cachedRow.id, pending)
+        try {
+          await deps.smtpQueue.enqueue(cachedRow.id, input.requestId)
+          smtpStatus = 'pending'
+        } catch {
+          await updateEmailCheckSnapshot(deps.db, cachedRow.id, snapshot)
+        }
+      }
+    }
+
     return {
       kind: 'ok',
       check: cachedRow,
-      snapshot,
+      snapshot: { ...snapshot, smtp_status: smtpStatus },
       creditsUsed: 0,
       creditsRemaining: balance,
       cached: true,
-      smtp: snapshot.smtp_status,
+      smtp: smtpStatus,
     }
   }
 

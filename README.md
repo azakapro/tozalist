@@ -93,6 +93,28 @@ Fastest way to see it work, no account needed: in a second terminal run
 verdict. It mints a temporary key for the seeded demo organisation and revokes
 it when you press Ctrl+C.
 
+### Checking whether a mailbox really exists
+
+By default only offline checks run, so a well-formed address at a real domain
+comes back `unknown` with `SMTP_NOT_CHECKED`. To probe the mailbox itself over
+SMTP (which is what tells you whether `someone@gmail.com` exists):
+
+1. Your network must allow outbound port 25. Test with
+   `nc -z -G 5 gmail-smtp-in.l.google.com 25`; most home connections work,
+   most cloud VPS providers block it until you ask.
+2. In `.env` set `SMTP_ENABLED=true`, and give the probe a real identity:
+   `SMTP_HELO_DOMAIN=yourdomain.example` and `SMTP_PROBE_FROM=postmaster@yourdomain.example`.
+3. Enable it for the demo organisation (it is per-organisation by design):
+
+   ```bash
+   docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "UPDATE organizations SET smtp_enabled = true WHERE id = '"'"'00000000-0000-4000-8000-000000000001'"'"';"'
+   ```
+
+4. Restart `docker compose up -d engine` and `pnpm dev`. `pnpm try` now waits for
+   the probe: a missing Gmail mailbox returns `invalid` / `MAILBOX_REJECTED`, an
+   existing one `valid`. Providers that accept every recipient (mail.ru does)
+   are reported as `unknown` / `CATCH_ALL_DOMAIN`, honestly.
+
 Then try it:
 
 ```bash

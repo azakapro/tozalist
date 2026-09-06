@@ -110,10 +110,13 @@ func probeSMTP(ctx context.Context, v verifier, cfg config, syntax emailverifier
 	return &smtpResult{
 		Attempted:       true,
 		MailboxAccepted: result.Deliverable,
-		CatchAll:        result.CatchAll,
-		FullInbox:       result.FullInbox,
-		Disabled:        result.Disabled,
-		Error:           "",
+		// The library initialises CatchAll to true and only clears it when the
+		// catch-all probe actually runs; without that probe the flag is not a
+		// finding. Report catch-all only when it was checked.
+		CatchAll:  catchAll && result.CatchAll,
+		FullInbox: result.FullInbox,
+		Disabled:  result.Disabled,
+		Error:     "",
 	}
 }
 
