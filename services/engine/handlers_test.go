@@ -302,6 +302,35 @@ func TestVerifyDNSServerFailureStaysUnknown(t *testing.T) {
 	}
 }
 
+// catchAllSMTP mirrors the library's default: CatchAll starts true and is only
+// cleared when the catch-all probe itself runs.
+var catchAllSMTP = emailverifierSMTP
+
+func init() { catchAllSMTP.CatchAll = true }
+
+func TestVerifyCatchAllNotClaimedWhenUnchecked(t *testing.T) {
+	// The library's SMTP result starts with CatchAll=true and only clears it
+	// when the catch-all probe runs. With catch_all=false the flag must not
+	// leak through as a finding.
+	stub := &stubVerifier{mxResult: mxRecords("mx.example.test"), smtpResult: &catchAllSMTP}
+	cfg := testConfig()
+	cfg.SMTPEnabled = true
+	s, _ := newTestServer(t, cfg, stub)
+
+	resp := decodeResponse(t, postVerify(t, s, `{"email":"a@example.test","smtp":true,"catch_all":false}`))
+	if resp.SMTP == nil || !resp.SMTP.Attempted {
+		t.Fatal("smtp probe was not attempted")
+	}
+	if resp.SMTP.CatchAll {
+		t.Error("catch_all = true although the catch-all probe was not requested")
+	}
+
+	resp = decodeResponse(t, postVerify(t, s, `{"email":"a@example.test","smtp":true,"catch_all":true}`))
+	if resp.SMTP == nil || !resp.SMTP.CatchAll {
+		t.Error("catch_all = false although the probe ran and reported a catch-all domain")
+	}
+}
+
 // --- 9. unknown fields rejected, plus other malformed bodies ---
 
 func TestVerifyRejectsBadRequests(t *testing.T) {

@@ -20,6 +20,13 @@ const DEMO_ORG_ID = '00000000-0000-4000-8000-000000000001'
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? `http://localhost:${process.env.API_PORT ?? '3001'}`
 const PORT = Number(process.env.TRY_PORT ?? '3005')
+/** How long to wait for the background SMTP probe before showing the offline verdict. */
+const PROBE_WAIT_MS = 45_000
+
+type CheckResponse = {
+  data?: { check_id?: string }
+  meta?: { smtp?: 'skipped' | 'pending' | 'complete' }
+}
 
 const PAGE = `<!doctype html>
 <html lang="en">
@@ -66,7 +73,7 @@ const PAGE = `<!doctype html>
     e.preventDefault()
     const email = document.getElementById('email').value.trim()
     if (!email) return
-    go.disabled = true; out.style.display = 'block'; out.innerHTML = '<p class="note">Checking…</p>'
+    go.disabled = true; out.style.display = 'block'; out.innerHTML = '<p class="note">Checking… (a mailbox probe can take up to ~30 s)</p>'
     try {
       const r = await fetch('/check', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email }) })
       const j = await r.json()
@@ -74,6 +81,10 @@ const PAGE = `<!doctype html>
       const d = j.data
       let html = '<span class="verdict ' + esc(d.verdict) + '">' + esc(d.verdict) + '</span>'
       if (d.verdict === 'unknown') html += '<p class="note">Do not delete — we could not determine this address.</p>'
+      const smtp = (j.meta || {}).smtp
+      if (smtp === 'complete') html += '<p class="note">Mailbox probed over SMTP.</p>'
+      else if (smtp === 'pending') html += '<p class="note">Mailbox probe still running; showing the offline result.</p>'
+      else if (smtp === 'skipped') html += '<p class="note">Mailbox not probed (SMTP_ENABLED is false, or the organisation has it off).</p>'
       if (d.suggestion) html += '<p class="note">Did you mean <code>' + esc(d.suggestion) + '</code>?</p>'
       html += '<ul>' + (d.reason_codes || []).map((c) => '<li><code>' + esc(c) + '</code> ' + esc((d.reason_explanations || {})[c] || '') + '</li>').join('') + '</ul>'
       html += '<p class="disclaimer">' + esc(d.disclaimer || '') + '</p>'
@@ -124,12 +135,34 @@ async function main(): Promise<void> {
       if (req.method === 'POST' && req.url === '/check') {
         const body = JSON.parse(await readBody(req)) as { email?: unknown }
         const email = typeof body.email === 'string' ? body.email : ''
+        const headers = { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' }
+        // Ask for the mailbox probe. The API answers immediately with the offline
+        // verdict and meta.smtp = "pending"; the worker probes in the background,
+        // so poll the check until it is complete (or give up and show what we have).
         const upstream = await fetch(`${API_URL}/v1/email/check`, {
           method: 'POST',
-          headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ email, smtp: false }),
+          headers,
+          body: JSON.stringify({ email, smtp: true }),
         })
-        return send(res, upstream.status, 'application/json; charset=utf-8', await upstream.text())
+        let text = await upstream.text()
+        if (upstream.ok) {
+          let parsed = JSON.parse(text) as CheckResponse
+          const deadline = Date.now() + PROBE_WAIT_MS
+          while (
+            parsed.meta?.smtp === 'pending' &&
+            parsed.data?.check_id &&
+            Date.now() < deadline
+          ) {
+            await new Promise((resolve) => setTimeout(resolve, 1_000))
+            const poll = await fetch(`${API_URL}/v1/email/check/${parsed.data.check_id}`, {
+              headers,
+            })
+            if (!poll.ok) break
+            text = await poll.text()
+            parsed = JSON.parse(text) as CheckResponse
+          }
+        }
+        return send(res, upstream.status, 'application/json; charset=utf-8', text)
       }
       return send(res, 404, 'text/plain; charset=utf-8', 'not found')
     } catch (error) {

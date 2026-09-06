@@ -296,6 +296,38 @@ describe.skipIf(!hasIntegrationEnv)('check endpoints', () => {
     expect((complete.json() as { meta: { smtp: string } }).meta.smtp).toBe('complete')
   })
 
+  it('a cached offline-only result does not satisfy a probe request: the probe is attached, free', async () => {
+    const h = await harness({ credits: 5, orgSmtp: true, smtpEnabled: true })
+    const email = 'later.probe@smtp.test'
+
+    const first = await post(h, '/v1/email/check', { email, smtp: false })
+    const firstBody = first.json() as { data: { check_id: string }; meta: { smtp: string } }
+    expect(firstBody.meta.smtp).toBe('skipped')
+    expect(h.queue.jobs).toHaveLength(0)
+
+    // Same address, now asking for the mailbox probe: a cache hit (no charge,
+    // same check id) that becomes pending and enqueues exactly that check.
+    const second = await post(h, '/v1/email/check', { email, smtp: true })
+    const body = second.json() as {
+      data: { check_id: string }
+      meta: { smtp: string; cached: boolean; credits_used: number }
+    }
+    expect(body.meta.cached).toBe(true)
+    expect(body.meta.credits_used).toBe(0)
+    expect(body.data.check_id).toBe(firstBody.data.check_id)
+    expect(body.meta.smtp).toBe('pending')
+    expect(h.queue.jobs).toEqual([firstBody.data.check_id])
+
+    // While pending, a further probe request neither re-enqueues nor charges.
+    const third = await post(h, '/v1/email/check', { email, smtp: true })
+    expect((third.json() as { meta: { smtp: string } }).meta.smtp).toBe('pending')
+    expect(h.queue.jobs).toHaveLength(1)
+
+    // And a probe-less request against the pending row just reports pending.
+    const fourth = await post(h, '/v1/email/check', { email, smtp: false })
+    expect((fourth.json() as { meta: { smtp: string } }).meta.smtp).toBe('pending')
+  })
+
   it.each([
     ['request off', { body: false, org: true, env: true }],
     ['org policy off', { body: true, org: false, env: true }],
