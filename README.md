@@ -56,16 +56,16 @@ failures are reported honestly as "we could not tell", never as `invalid`.
                                                      └──────────────────────┘
 ```
 
-| Layer           | Choice                                                         |
-| --------------- | -------------------------------------------------------------- |
-| Language        | TypeScript (strict) everywhere; Go for the engine sidecar      |
-| API             | Fastify 5, Zod, OpenAPI 3.1 generated from route schemas       |
-| Web + dashboard | Next.js 16 (App Router), React 19, Tailwind, self-hosted fonts |
-| Validation      | Go sidecar wrapping `AfterShip/email-verifier` (MIT)           |
-| Database        | PostgreSQL 16 + Drizzle ORM, append-only credit ledger         |
-| Queue           | Redis 7 + BullMQ                                               |
-| Object storage  | S3-compatible (MinIO locally)                                  |
-| Packaging       | pnpm workspaces, Docker Compose, Caddy with automatic TLS      |
+| Layer           | Choice                                                                          |
+| --------------- | ------------------------------------------------------------------------------- |
+| Language        | TypeScript (strict) everywhere; Go for the engine sidecar                       |
+| API             | Fastify 5, Zod, OpenAPI 3.1 generated from route schemas                        |
+| Web + dashboard | Next.js 16 (App Router), React 19, Tailwind, self-hosted fonts                  |
+| Validation      | Go sidecar: `AfterShip/email-verifier` (MIT) for offline checks, own SMTP probe |
+| Database        | PostgreSQL 16 + Drizzle ORM, append-only credit ledger                          |
+| Queue           | Redis 7 + BullMQ                                                                |
+| Object storage  | S3-compatible (MinIO locally)                                                   |
+| Packaging       | pnpm workspaces, Docker Compose, Caddy with automatic TLS                       |
 
 The engine has no authentication and is **never** exposed publicly: in
 production it lives on an internal Docker network and the smoke test asserts
@@ -169,11 +169,11 @@ apps/
   dashboard/    Next.js customer dashboard (session auth, TOTP MFA, keys, usage, billing)
   web/          Next.js public site: landing, docs, legal pages, pilot form (uz/ru/en)
 packages/
-  core/         Pure domain logic: normalisation, typo map, verdict aggregation, reason codes, 500-case corpus
+  core/         Pure domain logic: normalisation, 324-provider typo map, verdict aggregation, reason codes, 500-case corpus
   db/           Drizzle schema, migrations, seed, lifecycle helpers
   shared/       Engine client (retries + circuit breaker), S3 storage, logging redaction, env helpers
 services/
-  engine/       Go sidecar wrapping AfterShip/email-verifier; internal-only HTTP
+  engine/       Go sidecar: syntax/MX/disposable via AfterShip/email-verifier, native SMTP mailbox probe; internal-only HTTP
 deploy/         Production Compose, Caddy, backup/restore scripts, deploy runbook
 scripts/        Smoke test, deployment verification, secret scan
 docs/           Architecture, data model, webhooks, beta kit, release gates, launch checklist
@@ -184,6 +184,7 @@ docs/           Architecture, data model, webhooks, beta kit, release gates, lau
 | Command                | What it does                                                   |
 | ---------------------- | -------------------------------------------------------------- |
 | `pnpm dev`             | Runs api, worker, web and dashboard together (`concurrently`)  |
+| `pnpm try`             | One-input local page to check an address, no account needed    |
 | `pnpm build`           | Builds every workspace package in dependency order             |
 | `pnpm test`            | Vitest across all packages (integration suites use Compose)    |
 | `pnpm typecheck`       | `tsc --noEmit` in every TypeScript workspace                   |
@@ -210,7 +211,7 @@ docker run --rm -v "$PWD/services/engine:/src" -w /src golang:1.22-alpine go tes
 
 CI runs on every push and pull request: frozen install, production dependency
 audit (blocking), secret scan, banned-copy lint (no "guaranteed", "verified",
-"100% accurate" anywhere in any locale), build, typecheck, ~630 workspace tests
+"100% accurate" anywhere in any locale), build, typecheck, 900+ workspace tests
 against real Postgres/Redis/MinIO containers, and the accuracy corpus.
 
 Highlights worth reading:
